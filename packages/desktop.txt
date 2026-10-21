@@ -1,0 +1,2 @@
+# Hyprland, Quickshell, portals, audio, and desktop utilities.
+# Add verified Arch package names as we implement the desktop.
