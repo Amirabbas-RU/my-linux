@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# MyLinux live medium — network helper invoked manually or from the installer.
+#
+# Ensures at least one interface is up and, if possible, that DNS works. It is
+# deliberately conservative: it never modifies the *target* system, only the
+# live environment.
+set -u
+
+echo "MyLinux live network status"
+echo "---------------------------"
+if command -v nmcli >/dev/null 2>&1; then
+    nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status 2>/dev/null | sed 's/^/  /' || true
+else
+    ip -brief addr | sed 's/^/  /'
+fi
+
+if getent hosts archlinux.org >/dev/null 2>&1; then
+    echo "  DNS: resolving archlinux.org — network looks good."
+else
+    echo "  DNS: not resolving. Use 'iwctl' for Wi-Fi, or check the cable."
+fi

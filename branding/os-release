@@ -1,0 +1,13 @@
+NAME="MyLinux"
+PRETTY_NAME="MyLinux"
+ID=mylinux
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;245;166;35"
+LOGO=mylinux-logo
+HOME_URL="https://github.com/Amirabbas-RU/my-linux"
+DOCUMENTATION_URL="https://github.com/Amirabbas-RU/my-linux/tree/main/docs"
+SUPPORT_URL="https://github.com/Amirabbas-RU/my-linux/issues"
+BUG_REPORT_URL="https://github.com/Amirabbas-RU/my-linux/issues"
+PRIVACY_POLICY_URL="https://github.com/Amirabbas-RU/my-linux"
+VERSION_ID=2026.11

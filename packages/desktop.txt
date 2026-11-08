@@ -1,2 +1,79 @@
-# Hyprland, Quickshell, portals, audio, and desktop utilities.
-# Add verified Arch package names as we implement the desktop.
+# MyLinux desktop package set
+#
+# Layered on top of packages/base.txt for machines that install the MyLinux
+# desktop. Provides the Hyprland Wayland session, the Quickshell shell runtime,
+# XDG portals, a display manager and the day-to-day desktop utilities that the
+# MyLinux shell (panel, launcher, OSD, lock screen) depends on.
+
+# --- Wayland compositor ---
+hyprland
+hyprpicker
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+xdg-desktop-portal
+wayland-protocols
+qt6-wayland
+wayland-utils
+
+# --- Quickshell runtime (QML shell) ---
+quickshell
+qt6-declarative
+qt6-svg
+qt6-base
+qt6-5compat
+qt6-multimedia
+qt6-wayland
+
+# --- authentication agent / session ---
+polkit
+polkit-gnome
+hyprpolkitagent
+
+# --- display manager (login) ---
+sddm
+qt6-declarative
+
+# --- shell utilities the desktop uses ---
+kitty
+foot
+grim
+slurp
+swappy
+wl-clipboard
+cliphist
+brightnessctl
+playerctl
+networkmanager
+nm-connection-editor
+blueman
+libnotify
+mako
+
+# --- wallpaper / theming ---
+hyprpaper
+awww
+matugen
+
+# --- lock screen / idle ---
+hyprlock
+hypridle
+
+# --- fonts used by the shell ---
+ttf-jetbrains-mono-nerd
+noto-fonts
+noto-fonts-emoji
+ttf-dejavu
+
+# --- icons + cursors for the MyLinux identity ---
+papirus-icon-theme
+adwaita-cursors
+gtk3
+qt6ct
+nwg-look
+
+# --- audio / bluetooth control ---
+pipewire
+wireplumber
+pavucontrol
+bluez
+bluez-utils

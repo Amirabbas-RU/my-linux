@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# MyLinux live medium — interactive startup.
+#
+# Runs on tty1 after the live environment boots. Shows the MyLinux banner,
+# configures a few live-session niceties, and offers to launch the installer.
+
+set -u
+
+PRIMARY=$'\033[38;5;214m'
+ACCENT=$'\033[38;5;99m'
+DIM=$'\033[2m'
+BOLD=$'\033[1m'
+RESET=$'\033[0m'
+
+clear
+cat <<BANNER
+${PRIMARY}
+  __  __       _     _     _
+ |  \/  |_   _| |   (_)_ __  _   ___  __
+ | |\/| | | | | |   | | '_ \| | | \ \/ /
+ | |  | | |_| | |___| | | | | |_| |>  <
+ |_|  |_|\__, |_____|_|_| |_|\__,_/_/\_\
+         |___/   ${BOLD}MyLinux ${RESET}${DIM}live install medium${RESET}
+BANNER
+
+echo "${DIM}  Arch-based • Hyprland + Quickshell desktop${RESET}"
+echo
+
+# Live niceties ------------------------------------------------------------
+if [ -d /sys/firmware/efi ]; then
+    echo "  ${ACCENT}•${RESET} boot mode      : UEFI"
+else
+    echo "  ${ACCENT}•${RESET} boot mode      : BIOS (legacy)"
+    echo "    ${BOLD}Note:${RESET} MyLinux installs only on UEFI systems."
+fi
+echo "  ${ACCENT}•${RESET} architecture   : $(uname -m)"
+echo "  ${ACCENT}•${RESET} kernel         : $(uname -r)"
+echo
+
+# Make the console comfortable in the live session.
+export PS1='\[\e[38;5;214m\]\u@\e[38;5;99m\]mylinux\[\e[0m\]:\[\e[1m\]\w\[\e[0m\]\$ '
+
+cat <<EOF
+
+  ${BOLD}Install MyLinux${RESET}
+  ---------------------------------------------
+  Run the guided installer with:
+
+      ${BOLD}mylinux-install${RESET}
+
+  Need Wi-Fi first?  ${BOLD}iwctl${RESET}   (or use ${BOLD}nmcli${RESET})
+  System information: ${BOLD}mylinux-systeminfo${RESET}
+  Documentation:      ${BOLD}/usr/share/doc/mylinux/${RESET}
+
+EOF
+
+# If attached to a terminal, offer to start the installer automatically.
+if [ -t 0 ] && [ -t 1 ]; then
+    for _ in 1 2 3 4 5; do
+        printf '\r  Starting the installer in %d seconds (press Enter to start now, Ctrl-C to stay in the shell)...' $((6 - _))
+        if read -r -t 1 _; then
+            break
+        fi
+    done
+    echo
+    echo
+    # Only auto-launch if we are on the primary virtual console.
+    if [ "$(tty)" = "/dev/tty1" ]; then
+        exec /usr/local/bin/mylinux-install
+    fi
+fi
+
+exec /bin/bash -l

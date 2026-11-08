@@ -1,0 +1,76 @@
+# MyLinux live ISO package set
+#
+# Installed into the *live* environment by the Archiso profile at
+# iso/airootfs. This is the environment the user boots into to run the
+# MyLinux installer. It is intentionally richer than the installed base:
+# it must be able to partition disks, mount filesystems, run pacstrap,
+# and drive the installer TUI over the network or from local media.
+
+# --- live system core ---
+base
+linux
+linux-firmware
+amd-ucode
+intel-ucode
+mkinitcpio
+mkinitcpio-archiso
+arch-install-scripts
+sudo
+dialog
+parted
+gptfdisk
+dosfstools
+e2fsprogs
+btrfs-progs
+xfsprogs
+cryptsetup
+lvm2
+
+# --- bootloader tooling ---
+grub
+efibootmgr
+os-prober
+
+# --- networking ---
+networkmanager
+iwd
+wpa_supplicant
+openssh
+curl
+wget
+rsync
+iproute2
+inetutils
+bind
+
+# --- filesystem utilities ---
+squashfs-tools
+zstd
+xz
+
+# --- installer runtime ---
+jq
+grep
+sed
+gawk
+coreutils
+util-linux
+procps-ng
+systemd
+bash
+
+# --- fonts for the live TUI ---
+terminus-font
+noto-fonts
+
+# --- misc tools ---
+vim
+nano
+less
+man-db
+tree
+htop
+pciutils
+usbutils
+dmidecode
+git

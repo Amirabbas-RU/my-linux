@@ -1,0 +1,16 @@
+[Unit]
+Description=MyLinux desktop shell (Quickshell)
+Documentation=man:quickshell(1)
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=HYPRLAND_INSTANCE_SIGNATURE
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/quickshell -p %h/.config/quickshell/shell.qml
+ExecReload=/usr/bin/quickshell ipc call mylinux reload
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

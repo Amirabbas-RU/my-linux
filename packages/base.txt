@@ -1,1 +1,91 @@
-# Base packages will be selected during system integration.
+# MyLinux base package set
+#
+# Installed into every MyLinux system by the installer's base phase.
+# Kept intentionally minimal: functionality that every machine needs to boot,
+# manage users, network, audio, Bluetooth and time correctly.
+#
+# Package lists are consumed by installer/backend/install_base.sh via pacstrap.
+
+# --- core system ---
+base
+linux
+linux-firmware
+amd-ucode
+intel-ucode
+mkinitcpio
+sudo
+systemd
+systemd-sysvcompat
+pacman
+vim
+nano
+less
+man-db
+man-pages
+which
+
+# --- filesystem / partitioning tools ---
+e2fsprogs
+dosfstools
+exfatprogs
+btrfs-progs
+xfsprogs
+parted
+gptfdisk
+cryptsetup
+lvm2
+
+# --- bootloader (UEFI) ---
+efibootmgr
+grub
+os-prober
+
+# --- networking + DNS ---
+networkmanager
+network-manager-applet
+iwd
+wpa_supplicant
+dhcpcd
+openssh
+inetutils
+bind
+curl
+wget
+
+# --- audio (PipeWire) ---
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+alsa-utils
+sof-firmware
+pavucontrol
+pamixer
+
+# --- bluetooth ---
+bluez
+bluez-utils
+
+# --- time / locale ---
+# systemd-timesyncd ships inside the `systemd` package; no separate package.
+glibc
+
+# --- hardware utilities ---
+pciutils
+usbutils
+dmidecode
+lsof
+htop
+tree
+unzip
+zip
+rsync
+jq
+bash-completion
+
+# --- fonts / base desktop plumbing ---
+noto-fonts
+noto-fonts-emoji
+ttf-jetbrains-mono-nerd
+fontconfig

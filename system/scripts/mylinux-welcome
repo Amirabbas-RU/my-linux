@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# mylinux-welcome - first-run helper shown in the user's terminal.
+#
+# Summarises the session, points at documentation and offers common actions.
+set -euo pipefail
+
+cat <<'BANNER'
+  __  __       _     _     _
+ |  \/  |_   _| |   (_)_ __  _   ___  __
+ | |\/| | | | | |   | | '_ \| | | \ \/ /
+ | |  | | |_| | |___| | | | | |_| |>  <
+ |_|  |_|\__, |_____|_|_| |_|\__,_/_/\_\
+         |___/            Welcome to MyLinux
+BANNER
+
+echo
+echo "Session: ${XDG_CURRENT_DESKTOP:-unknown} (${XDG_SESSION_TYPE:-unknown})"
+echo "Docs:    /usr/share/doc/mylinux/"
+echo
+echo "Useful keys:"
+echo "  SUPER + Return   open terminal"
+echo "  SUPER + D        application launcher"
+echo "  SUPER + Q        close window"
+echo "  SUPER + L        lock screen"
+echo "  SUPER + ESCAPE   session menu"
+echo
+echo "Update the system with: sudo mylinux-update"

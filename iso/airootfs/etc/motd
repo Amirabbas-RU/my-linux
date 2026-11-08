@@ -1,0 +1,14 @@
+^\e[1;33mMyLinux\e[0m live environment — build \e[1m2026.11\e[0m
+
+The installer starts automatically on this terminal.
+If it does not, run:
+
+    \e[1mmylinux-install\e[0m
+
+Other useful commands:
+
+    mylinux-systeminfo    show system information
+    iwctl                 connect to a Wi-Fi network
+    nmcli                 NetworkManager command line
+
+Documentation is in /usr/share/doc/mylinux/.

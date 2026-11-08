@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# mylinux-update - refresh mirrors and update a MyLinux system safely.
+#
+# Wraps pacman with the MyLinux defaults: refresh mirrors via reflector when
+# available, then perform a full system upgrade.
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "mylinux-update: must be run as root (use sudo)." >&2
+    exit 1
+fi
+
+echo "==> Refreshing mirror list (reflector)"
+if command -v reflector >/dev/null 2>&1; then
+    reflector --latest 20 --protocol https --sort rate \
+        --save /etc/pacman.d/mirrorlist || echo "   reflector failed, keeping current mirrors"
+else
+    echo "   reflector not installed, keeping current mirrors"
+fi
+
+echo "==> Synchronising databases and upgrading"
+pacman -Syu --noconfirm
+
+echo "==> Removing orphaned packages"
+orphans=$(pacman -Qtdq 2>/dev/null || true)
+if [ -n "$orphans" ]; then
+    pacman -Rns --noconfirm $orphans
+else
+    echo "   no orphans"
+fi
+
+echo "==> Update complete."

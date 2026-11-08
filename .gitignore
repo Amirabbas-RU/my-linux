@@ -1,21 +1,50 @@
-# Generated images and build artifacts
+# MyLinux — generated and local artefacts
+# Keep the repository free of build output, live images and secrets.
+
+# --- ISO / image build output ---
 *.iso
 *.iso.sig
 *.img
+*.img.zst
 *.qcow2
+*.qcow2.*
 *.raw
-*.log
+*.vhd
+*.vmdk
+out/
+iso/out/
+iso/work/
+iso/*.iso
+work/
 
-# Temporary files
+# --- archiso intermediate state ---
+iso/airootfs/usr/share/mylinux/
+iso/packages.x86_64
+
+# --- logs / temporary files ---
+*.log
 *.tmp
 *.swp
+*.swo
 *~
+.cache/
 
-# Secrets and local environment files
+# --- secrets and local environment ---
 .env
 .env.*
 !.env.example
+*.key
+*.pem
+!branding/**/*.pem
 
-# Editor and operating-system files
+# --- editor / OS noise ---
+.idea/
+.vscode/
 .DS_Store
 Thumbs.db
+
+# --- python ---
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# mylinux-systeminfo - print a short summary of the running MyLinux system.
+#
+# Installed to /usr/local/bin on the target system. Handy for bug reports and
+# for confirming which release the user is running.
+set -euo pipefail
+
+conf=/etc/os-release
+[ -r "$conf" ] || conf=/usr/lib/os-release
+
+echo "MyLinux system information"
+echo "--------------------------"
+. "$conf"
+echo "OS:        ${PRETTY_NAME:-unknown}"
+echo "ID:        ${ID:-unknown} ${VERSION_ID:-}"
+echo "Kernel:    $(uname -r)"
+echo "Arch:      $(uname -m)"
+echo "Hostname:  $(hostname)"
+echo "Uptime:    $(uptime -p 2>/dev/null || uptime)"
+echo "Desktop:   ${XDG_CURRENT_DESKTOP:-none}"
+echo "Session:   ${XDG_SESSION_TYPE:-none}"
+if command -v hyprctl >/dev/null 2>&1 && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    echo "Compositor: Hyprland $(hyprctl version 2>/dev/null | awk '/^Hyprland,/{print $2; exit}')"
+fi
+echo
+echo "Packages:  $(pacman -Q 2>/dev/null | wc -l) installed"

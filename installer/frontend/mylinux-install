@@ -1,0 +1,335 @@
+#!/usr/bin/env bash
+# MyLinux installer — interactive frontend (dialog TUI).
+#
+# Collects answers across a guided sequence of screens, then hands a
+# configuration file to the backend (backend/install_base.sh). The frontend
+# never partitions or formats anything itself: the single destructive gate
+# lives in the backend so it cannot be bypassed.
+#
+# Screens:
+#   welcome -> language -> timezone -> keymap -> disk -> partition scheme ->
+#   filesystem -> bootloader -> user -> desktop -> summary -> [back-end runs
+#   with progress] -> success -> reboot
+set -Eeuo pipefail
+
+INSTALLER_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../backend" && pwd)"
+# shellcheck source=../backend/lib/common.sh
+. "$INSTALLER_DIR/lib/common.sh"
+# shellcheck source=../backend/lib/disk.sh
+. "$INSTALLER_DIR/lib/disk.sh"
+
+: "${MYLINUX_SOURCE:=/usr/share/mylinux}"
+: "${DIALOG:=dialog}"
+
+# ---- answers -------------------------------------------------------------
+ANS_LANGUAGE="en_US.UTF-8"
+ANS_TIMEZONE="UTC"
+ANS_KEYMAP="us"
+ANS_DISK=""
+ANS_ROOT_FS="ext4"
+ANS_BOOTLOADER="grub"
+ANS_HOSTNAME="mylinux"
+ANS_USERNAME=""
+ANS_USER_PASSWORD=""
+ANS_ROOT_PASSWORD=""
+ANS_DESKTOP="yes"
+
+TITLE="MyLinux Installer"
+BACKTITLE="MyLinux ${VERSION_ID:-2026.11} — guided installation (UEFI)"
+
+# ---- helpers -------------------------------------------------------------
+# shellcheck disable=SC2317
+die_ui() { $DIALOG --title "$TITLE" --msgbox "$1" 12 70; exit 1; }
+
+menu() {
+    # menu <text> <height> <width> <menuheight> <tag desc pairs...>
+    $DIALOG --clear --backtitle "$BACKTITLE" --title "$TITLE" "$@"
+}
+
+input_box() {
+    # input_box <text> <default> -> echoes the value on stdout
+    $DIALOG --clear --backtitle "$BACKTITLE" --title "$TITLE" \
+        --inputbox "$1" 10 70 "$2" 3>&1 1>&2 2>&3
+}
+
+# ---- screens -------------------------------------------------------------
+screen_welcome() {
+    menu --yes-label "Continue" --no-label "Exit" --yesno \
+"Welcome to MyLinux.
+
+This guided installer will install the MyLinux distribution (Arch-based,
+with the Hyprland + Quickshell desktop) onto a disk you choose.
+
+  * Only UEFI systems are supported.
+  * Your disk will be erased. You will be asked to confirm.
+  * Nothing is written until the final confirmation step.
+
+Do you want to continue?" 18 72 || exit 0
+}
+
+screen_language() {
+    local choice
+    choice="$(menu --menu "Select your language, locale and timezone region.\n\nThis sets the system locale." 0 0 0 \
+        en_US.UTF-8 "English (United States)" \
+        en_GB.UTF-8 "English (United Kingdom)" \
+        de_DE.UTF-8 "German" \
+        fr_FR.UTF-8 "French" \
+        es_ES.UTF-8 "Spanish" \
+        fa_IR.UTF-8 "Persian" \
+        3>&1 1>&2 2>&3)" || return 1
+    ANS_LANGUAGE="$choice"
+}
+
+screen_timezone() {
+    local region choice tz
+    region="$(menu --menu "Select your region." 0 0 0 \
+        UTC "Coordinated Universal Time" \
+        Africa "Africa" \
+        America "America" \
+        Asia "Asia" \
+        Europe "Europe" \
+        Oceania "Oceania" \
+        3>&1 1>&2 2>&3)" || return 1
+    if [ "$region" = "UTC" ]; then
+        ANS_TIMEZONE="UTC"
+        return 0
+    fi
+    mapfile -t zones < <(find "/usr/share/zoneinfo/$region" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | sort)
+    local -a items=()
+    for z in "${zones[@]}"; do items+=("$z" "$region/$z"); done
+    choice="$(menu --menu "Select your timezone in $region." 0 0 0 "${items[@]}" 3>&1 1>&2 2>&3)" || return 1
+    ANS_TIMEZONE="$region/$choice"
+}
+
+screen_keymap() {
+    local choice
+    choice="$(menu --menu "Select your console keyboard layout." 0 0 0 \
+        us "English (US)" \
+        uk "English (UK)" \
+        de "German" \
+        fr "French" \
+        es "Spanish" \
+        ru "Russian" \
+        ir "Iranian (Persian)" \
+        3>&1 1>&2 2>&3)" || return 1
+    ANS_KEYMAP="$choice"
+}
+
+screen_disk() {
+    mapfile -t DISKS < <(list_install_disks)
+    [ "${#DISKS[@]}" -gt 0 ] || die_ui "No installable disks were found."
+
+    local -a items=()
+    for d in "${DISKS[@]}"; do
+        IFS='|' read -r dev bytes model tran rm <<<"$d"
+        local desc="$(human_size "$bytes")  ${tran}  ${model}"
+        is_protected "$dev" && desc="$desc  [PROTECTED — running system / live medium]"
+        items+=("$dev" "$desc")
+    done
+
+    local choice
+    choice="$(menu --menu \
+"Select the disk to install MyLinux onto.
+
+Disks marked PROTECTED hold the running system, its /boot or /efi, or the
+live installation medium. The installer refuses to touch them even if
+selected." 0 0 0 "${items[@]}" 3>&1 1>&2 2>&3)" || return 1
+
+    ANS_DISK="$choice"
+
+    # Immediate, explicit warning if the user picked a protected disk.
+    if is_protected "$choice"; then
+        menu --msgbox \
+"$(printf '%s\n\n%s' "$choice is PROTECTED." \
+"This disk hosts the running system, its boot partition, or the live medium. The installer will refuse to install to it. Please choose another disk.")" \
+            14 72
+        ANS_DISK=""
+        return 1
+    fi
+}
+
+screen_partition_scheme() {
+    local choice
+    choice="$(menu --menu \
+"Select a partitioning scheme for $ANS_DISK.
+
+The MyLinux installer uses GPT on UEFI systems.
+
+  Guided - whole disk : ERASES the entire disk and creates an
+                        EFI system partition plus a root partition.
+  Guided - erase ESP  : same layout, but only rewrites signatures
+                        instead of zeroing the whole disk (faster)." 0 0 0 \
+        whole "Guided — erase whole disk and create EFI + root (recommended)" \
+        quick "Guided — quick wipe signatures and create EFI + root" \
+        3>&1 1>&2 2>&3)" || return 1
+    ANS_WIPE_MODE="$choice"
+}
+
+screen_filesystem() {
+    local choice
+    choice="$(menu --menu "Select the root filesystem." 0 0 0 \
+        ext4  "ext4 — mature, widely compatible (recommended)" \
+        btrfs "btrfs — snapshots, compression, subvolumes" \
+        xfs   "xfs — high performance for large files" \
+        3>&1 1>&2 2>&3)" || return 1
+    ANS_ROOT_FS="$choice"
+}
+
+screen_bootloader() {
+    local choice
+    choice="$(menu --menu "Select the bootloader (UEFI)." 0 0 0 \
+        grub         "GRUB — featureful, supports multi-boot menus" \
+        systemd-boot "systemd-boot — minimal, fast, simple" \
+        3>&1 1>&2 2>&3)" || return 1
+    ANS_BOOTLOADER="$choice"
+}
+
+screen_user() {
+    ANS_HOSTNAME="$(input_box "Choose a hostname for this computer." "$ANS_HOSTNAME")" || return 1
+    ANS_USERNAME="$(input_box "Choose a username for your account." "mylinux")" || return 1
+
+    local p1 p2
+    p1="$($DIALOG --clear --backtitle "$BACKTITLE" --title "$TITLE" --insecure \
+        --passwordbox "Enter a password for '$ANS_USERNAME'." 10 70 3>&1 1>&2 2>&3)" || return 1
+    p2="$($DIALOG --clear --backtitle "$BACKTITLE" --title "$TITLE" --insecure \
+        --passwordbox "Confirm the password for '$ANS_USERNAME'." 10 70 3>&1 1>&2 2>&3)" || return 1
+    if [ "$p1" != "$p2" ]; then
+        menu --msgbox "The passwords did not match. Please try again." 8 60
+        return 1
+    fi
+    [ -n "$p1" ] || { menu --msgbox "The password must not be empty." 8 60; return 1; }
+    ANS_USER_PASSWORD="$p1"
+
+    local r1 r2
+    r1="$($DIALOG --clear --backtitle "$BACKTITLE" --title "$TITLE" --insecure \
+        --passwordbox "Enter a password for the root account." 10 70 3>&1 1>&2 2>&3)" || return 1
+    r2="$($DIALOG --clear --backtitle "$BACKTITLE" --title "$TITLE" --insecure \
+        --passwordbox "Confirm the root password." 10 70 3>&1 1>&2 2>&3)" || return 1
+    if [ "$r1" != "$r2" ]; then
+        menu --msgbox "The root passwords did not match. Please try again." 8 60
+        return 1
+    fi
+    [ -n "$r1" ] || { menu --msgbox "The root password must not be empty." 8 60; return 1; }
+    ANS_ROOT_PASSWORD="$r1"
+}
+
+screen_desktop() {
+    local choice
+    choice="$(menu --menu "Install the MyLinux desktop?" 0 0 0 \
+        yes "Yes — Hyprland + Quickshell desktop (recommended)" \
+        no  "No — base system only, no graphical desktop" \
+        3>&1 1>&2 2>&3)" || return 1
+    ANS_DESKTOP="$choice"
+}
+
+screen_summary() {
+    local scheme="whole disk"
+    [ "${ANS_WIPE_MODE:-whole}" = "quick" ] && scheme="quick signature wipe"
+
+    menu --yes-label "Install" --no-label "Go back" --yesno \
+"$(printf 'Please review your choices.\n
+  Target disk     : %s
+  Partitioning    : %s
+  Root filesystem : %s
+  Bootloader      : %s
+  Hostname        : %s
+  Timezone        : %s
+  Locale          : %s
+  Keymap          : %s
+  Username        : %s
+  Desktop         : %s
+
+ALL DATA ON %s WILL BE ERASED.
+
+The next step writes a configuration file and launches the installer backend,
+which will ask you to type the device name once more before erasing.' \
+        "$ANS_DISK" "$scheme" "$ANS_ROOT_FS" "$ANS_BOOTLOADER" "$ANS_HOSTNAME" \
+        "$ANS_TIMEZONE" "$ANS_LANGUAGE" "$ANS_KEYMAP" "$ANS_USERNAME" "$ANS_DESKTOP" \
+        "$ANS_DISK")" 24 76 || return 1
+}
+
+# ---- run the backend -----------------------------------------------------
+run_backend() {
+    local cfg; cfg="$(mktemp /tmp/mylinux-answers.XXXXXX.conf)"
+    chmod 600 "$cfg"
+    umask 077
+    cat > "$cfg" <<EOF
+TARGET_DISK=$ANS_DISK
+ROOT_FS=$ANS_ROOT_FS
+BOOTLOADER=$ANS_BOOTLOADER
+HOSTNAME=$ANS_HOSTNAME
+TIMEZONE=$ANS_TIMEZONE
+LOCALE=$ANS_LANGUAGE
+KEYMAP=$ANS_KEYMAP
+USERNAME=$ANS_USERNAME
+USER_PASSWORD=$ANS_USER_PASSWORD
+ROOT_PASSWORD=$ANS_ROOT_PASSWORD
+INSTALL_DESKTOP=$ANS_DESKTOP
+KERNEL=linux
+ESP_SIZE_MIB=512
+EOF
+
+    # Progress screen: tail the install log while the backend runs.
+    : > "$MYLINUX_LOG"
+    $DIALOG --clear --backtitle "$BACKTITLE" --title "$TITLE" \
+        --tailbox "$MYLINUX_LOG" 22 78 &
+    local dlgpid=$!
+
+    local rc=0
+    MYLINUX_SOURCE="$MYLINUX_SOURCE" "$INSTALLER_DIR/install_base.sh" --config "$cfg" || rc=$?
+
+    # Give the tailbox a moment to show the final lines, then close it.
+    sleep 1
+    kill "$dlgpid" 2>/dev/null || true
+    wait "$dlgpid" 2>/dev/null || true
+    rm -f "$cfg"
+
+    if [ "$rc" -ne 0 ]; then
+        menu --msgbox \
+"$(printf 'The installation failed (exit %s).\n\nReview the log below.\n\n%s' "$rc" "$(tail -n 20 "$MYLINUX_LOG" 2>/dev/null)")" \
+            22 78
+        return 1
+    fi
+}
+
+screen_success() {
+    local choice
+    choice="$(menu --menu \
+"MyLinux was installed successfully.
+
+What would you like to do now?" 0 0 0 \
+        reboot "Reboot into MyLinux" \
+        shell  "Drop to a shell" \
+        3>&1 1>&2 2>&3)" || choice="shell"
+
+    case "$choice" in
+        reboot) clear; reboot ;;
+        *)      clear; exec /bin/bash -l ;;
+    esac
+}
+
+# ---- main ----------------------------------------------------------------
+main() {
+    require_root
+    require_uefi
+
+    screen_welcome
+    screen_language || screen_language
+    screen_timezone || screen_timezone
+    screen_keymap   || screen_keymap
+    screen_disk     || screen_disk
+    screen_partition_scheme || screen_partition_scheme
+    screen_filesystem || screen_filesystem
+    screen_bootloader || screen_bootloader
+    screen_user     || screen_user
+    screen_desktop  || screen_desktop
+
+    if ! screen_summary; then
+        exec "$0"   # restart the flow from the top on "Go back"
+    fi
+
+    run_backend || { menu --msgbox "Installation did not complete. You can retry." 8 60; exec "$0"; }
+    screen_success
+}
+
+main "$@"
