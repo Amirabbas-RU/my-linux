@@ -72,7 +72,10 @@ The installer walks through these screens:
    generated loader entry. GRUB is configured from `system/config/default-grub`,
    which brands the menu as MyLinux and adds `console=tty0 console=ttyS0,115200`
    so the installed system is reachable on a serial console; a
-   `serial-getty@ttyS0` service is enabled to match.
+   `serial-getty@ttyS0` service is enabled to match. GRUB is installed both to
+   its branded `EFI/MyLinux` path (a normal NVRAM boot entry) and, with
+   `--removable`, to `EFI/BOOT/BOOTX64.EFI`, so the disk also boots on a machine
+   whose NVRAM has no entry for it.
 9. **Unmount** and finish.
 
 Every command is written to `/var/log/mylinux-install.log` in the live

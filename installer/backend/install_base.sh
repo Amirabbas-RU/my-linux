@@ -309,6 +309,7 @@ stage_bootloader() {
             install -Dm644 "$MYLINUX_SOURCE/system/config/default-grub" \
                 "$MYLINUX_TARGET/etc/default/grub"
             in_target "grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=MyLinux --recheck"
+            in_target "grub-install --target=x86_64-efi --efi-directory=/boot --removable --recheck"
             in_target "grub-mkconfig -o /boot/grub/grub.cfg" ;;
         systemd-boot)
             in_target "bootctl --esp-path=/boot install"
@@ -355,8 +356,9 @@ run_install() {
 
     if [ "$DRY_RUN" != "yes" ]; then
         step "Syncing and unmounting"
-        sync
-        unmount_target
+        if ! unmount_target; then
+            die "installation finished but $MYLINUX_TARGET could not be unmounted cleanly; nothing was rebooted. Check the holders above before powering off."
+        fi
     fi
 
     step "Installation complete"

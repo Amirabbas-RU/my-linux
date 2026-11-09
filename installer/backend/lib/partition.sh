@@ -107,16 +107,37 @@ mount_target() {
     run "mounting EFI partition" mount "$esp" "$MYLINUX_TARGET/boot"
 }
 
-# unmount_target — recursively unmount the target, safe to call repeatedly.
 unmount_target() {
-    if mountpoint -q "$MYLINUX_TARGET" 2>/dev/null; then
-        for m in "$MYLINUX_TARGET/var/cache/pacman/pkg" "$MYLINUX_TARGET/var/log" \
-                 "$MYLINUX_TARGET/home" "$MYLINUX_TARGET/boot" \
-                 "$MYLINUX_TARGET"; do
-            if mountpoint -q "$m" 2>/dev/null; then
-                umount -R "$m" || umount -Rl "$m" || true
-            fi
-        done
-    fi
-    true
+    local m tries=0
+    [ -d "$MYLINUX_TARGET" ] || return 0
+
+    sync
+
+    while IFS= read -r m; do
+        [ -n "$m" ] || continue
+        [ "$m" = "$MYLINUX_TARGET" ] && continue
+        if mountpoint -q "$m" 2>/dev/null; then
+            umount -R "$m" 2>/dev/null || umount -Rl "$m" 2>/dev/null || true
+        fi
+    done < <(findmnt -rn -o TARGET -R "$MYLINUX_TARGET" 2>/dev/null | tac)
+
+    while mountpoint -q "$MYLINUX_TARGET" 2>/dev/null; do
+        tries=$((tries + 1))
+        if umount -R "$MYLINUX_TARGET" 2>/dev/null; then
+            break
+        fi
+        if [ "$tries" -ge 3 ]; then
+            warn "target $MYLINUX_TARGET is still busy; current holders:"
+            fuser -vm "$MYLINUX_TARGET" 2>&1 | while IFS= read -r m; do
+                warn "  $m"
+            done
+            umount -Rl "$MYLINUX_TARGET" 2>/dev/null || true
+            break
+        fi
+        sleep 1
+        sync
+    done
+
+    findmnt -rn -o TARGET -R "$MYLINUX_TARGET" 2>/dev/null | grep -q . && return 1
+    return 0
 }

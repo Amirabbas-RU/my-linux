@@ -335,10 +335,30 @@ else
     fail "installer does not enable serial-getty@ttyS0 on the installed system"
 fi
 
+if grep -q 'grub-install --target=x86_64-efi --efi-directory=/boot --removable' installer/backend/install_base.sh; then
+    pass "installer writes the removable-media UEFI fallback (EFI/BOOT/BOOTX64.EFI)"
+else
+    fail "installer never writes EFI/BOOT/BOOTX64.EFI (an empty-NVRAM machine would not boot)"
+fi
+
 if sed -n '/stage_payload$/,$p' iso/build.sh | grep -qE '^\s*rm -rf "\$WORKDIR"'; then
     pass "build.sh clears the work directory before every build"
 else
     fail "build.sh reuses a stale work directory (mkarchiso would skip steps and reuse the old ISO)"
+fi
+
+if grep -qE 'return 1' installer/backend/lib/partition.sh \
+   && sed -n '/^unmount_target()/,/^}/p' installer/backend/lib/partition.sh \
+        | grep -q 'findmnt -rn -o TARGET -R'; then
+    pass "unmount_target reports whether the target is really gone"
+else
+    fail "unmount_target cannot report a failed unmount (a busy target would be silently ignored)"
+fi
+
+if grep -qE 'if ! unmount_target; then' installer/backend/install_base.sh; then
+    pass "installer refuses to report success when the target stays mounted"
+else
+    fail "installer ignores the unmount result (may leave the target mounted after 'success')"
 fi
 
 # ---------------------------------------------------------------------------
