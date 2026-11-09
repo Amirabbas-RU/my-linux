@@ -105,14 +105,13 @@ mount_target() {
 
     run "creating ESP mountpoint" mkdir -p "$MYLINUX_TARGET/boot"
     run "mounting EFI partition" mount "$esp" "$MYLINUX_TARGET/boot"
-    run "creating /efi compatibility mount" mkdir -p "$MYLINUX_TARGET/efi"
 }
 
 # unmount_target — recursively unmount the target, safe to call repeatedly.
 unmount_target() {
     if mountpoint -q "$MYLINUX_TARGET" 2>/dev/null; then
         for m in "$MYLINUX_TARGET/var/cache/pacman/pkg" "$MYLINUX_TARGET/var/log" \
-                 "$MYLINUX_TARGET/home" "$MYLINUX_TARGET/boot" "$MYLINUX_TARGET/efi" \
+                 "$MYLINUX_TARGET/home" "$MYLINUX_TARGET/boot" \
                  "$MYLINUX_TARGET"; do
             if mountpoint -q "$m" 2>/dev/null; then
                 umount -R "$m" || umount -Rl "$m" || true

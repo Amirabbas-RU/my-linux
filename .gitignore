@@ -19,6 +19,8 @@ work/
 
 # --- archiso intermediate state ---
 iso/airootfs/usr/share/mylinux/
+iso/airootfs/usr/share/doc/mylinux/
+iso/airootfs/usr/local/bin/mylinux-install
 iso/packages.x86_64
 
 # --- logs / temporary files ---

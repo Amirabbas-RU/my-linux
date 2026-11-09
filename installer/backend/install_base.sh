@@ -161,8 +161,12 @@ stage_base() {
     install -Dm644 /etc/pacman.d/mirrorlist "$MYLINUX_TARGET/etc/pacman.d/mirrorlist"
 
     local pkgs; pkgs="$(package_list | tr '\n' ' ')"
+    # Plain pacstrap (no -K): the live keyring is already populated by
+    # pacman-init.service, and pacstrap copies it into the target so package
+    # signatures verify. -K would create an *empty* keyring and every package
+    # would fail its signature check.
     # shellcheck disable=SC2086
-    run "pacstrap base + MyLinux package set" pacstrap -K "$MYLINUX_TARGET" $pkgs
+    run "pacstrap base + MyLinux package set" pacstrap "$MYLINUX_TARGET" $pkgs
 
     # Keep the installer's own copy of the mirrorlist in case pacstrap replaced it.
     install -Dm644 /etc/pacman.d/mirrorlist "$MYLINUX_TARGET/etc/pacman.d/mirrorlist"
@@ -204,10 +208,21 @@ stage_configure() {
              '$HOSTNAME' '$HOSTNAME' > '$MYLINUX_TARGET/etc/hosts'"
 
     # --- users ------------------------------------------------------------
+    # Passwords are handed to chpasswd through 0600 files inside the target so
+    # that arbitrary characters (quotes, $, backslashes) survive intact and the
+    # plaintext never appears in the process list.
     info "creating user $USERNAME"
     in_target "useradd -m -G wheel,video,audio,input,render -s /bin/bash '$USERNAME'"
-    in_target "printf '%s:%s\n' root '$ROOT_PASSWORD' | chpasswd"
-    in_target "printf '%s:%s\n' '$USERNAME' '$USER_PASSWORD' | chpasswd"
+
+    local pwdir; pwdir="$(mktemp -d)"
+    chmod 700 "$pwdir"
+    printf '%s:%s\n' root "$ROOT_PASSWORD" > "$pwdir/root"
+    printf '%s:%s\n' "$USERNAME" "$USER_PASSWORD" > "$pwdir/user"
+    chmod 600 "$pwdir/root" "$pwdir/user"
+    install -m600 "$pwdir/root" "$MYLINUX_TARGET/root/.mylinux-pw"
+    install -m600 "$pwdir/user" "$MYLINUX_TARGET/root/.mylinux-upw"
+    rm -rf "$pwdir"
+    in_target "chpasswd < /root/.mylinux-pw && chpasswd < /root/.mylinux-upw && rm -f /root/.mylinux-pw /root/.mylinux-upw"
 
     # wheel sudoers
     bash -c "printf '%%wheel ALL=(ALL:ALL) ALL\n' > '$MYLINUX_TARGET/etc/sudoers.d/10-mylinux-wheel'"
@@ -229,6 +244,7 @@ stage_configure() {
     in_target "systemctl enable NetworkManager"
     in_target "systemctl enable bluetooth"
     in_target "systemctl enable systemd-timesyncd"
+    in_target "systemctl enable serial-getty@ttyS0.service"
     [ "$INSTALL_DESKTOP" = "yes" ] && in_target "systemctl enable sddm"
 
     # journald + timesyncd tuning from the repo
@@ -239,9 +255,8 @@ stage_configure() {
     for s in mylinux-systeminfo mylinux-update mylinux-welcome; do
         install -Dm755 "$MYLINUX_SOURCE/system/scripts/$s" "$MYLINUX_TARGET/usr/local/bin/$s"
     done
-    install -Dm644 "$MYLINUX_SOURCE/system/services/mylinux-firstboot.service" \
-        "$MYLINUX_TARGET/usr/lib/systemd/system/mylinux-firstboot.service"
-    in_target "systemctl enable mylinux-firstboot.service"
+    install -Dm644 "$MYLINUX_SOURCE/system/config/motd-welcome.sh" \
+        "$MYLINUX_TARGET/etc/profile.d/50-mylinux-welcome.sh"
 
     # --- docs -------------------------------------------------------------
     install -d "$MYLINUX_TARGET/usr/share/doc/mylinux"
@@ -255,33 +270,32 @@ stage_desktop() {
 
     local home="$MYLINUX_TARGET/home/$USERNAME"
 
-    # Per-user configuration. Installed under /etc/skel so new users inherit it,
-    # and copied into the freshly created user's home.
+    # Per-user configuration. Installed under /etc/skel so future users inherit
+    # it, and copied into the freshly created user's home.
+    run "creating /etc/skel/.config" install -d "$MYLINUX_TARGET/etc/skel/.config"
     run "installing Hyprland configuration" cp -a "$MYLINUX_SOURCE/desktop/hypr" "$MYLINUX_TARGET/etc/skel/.config/hypr"
     run "installing Quickshell configuration" cp -a "$MYLINUX_SOURCE/desktop/quickshell" "$MYLINUX_TARGET/etc/skel/.config/quickshell"
 
     run "installing desktop config for $USERNAME" cp -a "$MYLINUX_TARGET/etc/skel/.config" "$home/"
+    in_target "chown -R '$USERNAME:$USERNAME' '/home/$USERNAME'"
 
     # Keyboard layout chosen at install time is reflected in the Hyprland input
     # config so the desktop matches the console keymap.
     sed -i "s/^\(\s*kb_layout\s*=\s*\).*/\1$KEYMAP/" "$home/.config/hypr/conf.d/input.conf"
 
-    # SDDM: select the Hyprland session by default and theme it minimally.
+    # SDDM: Hyprland is the only session shipped, so it is selected by default.
+    # No custom theme is installed, so leave the theme at SDDM's default rather
+    # than pointing at a theme that does not exist.
     install -d "$MYLINUX_TARGET/etc/sddm.conf.d"
     cat > "$MYLINUX_TARGET/etc/sddm.conf.d/10-mylinux.conf" <<EOF
-[Autologin]
-User=
-[Theme]
-Current=mylinux
 [Users]
 MaximumUid=60000
 MinimumUid=1000
 EOF
 
-    # Own the user's configuration.
-    in_target "chown -R '$USERNAME:$USERNAME' '/home/$USERNAME'"
-
-    # Desktop shell as a user service (optional; Hyprland autostart also runs it).
+    # Desktop shell as a user service. Hyprland's autostart already launches the
+    # shell, so this unit is installed but not enabled (enabling both would run
+    # two shells).
     install -Dm644 "$MYLINUX_SOURCE/system/services/mylinux-shell.service" \
         "$MYLINUX_TARGET/usr/lib/systemd/user/mylinux-shell.service"
 }
@@ -292,12 +306,14 @@ stage_bootloader() {
 
     case "$BOOTLOADER" in
         grub)
+            install -Dm644 "$MYLINUX_SOURCE/system/config/default-grub" \
+                "$MYLINUX_TARGET/etc/default/grub"
             in_target "grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=MyLinux --recheck"
             in_target "grub-mkconfig -o /boot/grub/grub.cfg" ;;
         systemd-boot)
             in_target "bootctl --esp-path=/boot install"
             local root_uuid; root_uuid="$(blkid -s UUID -o value "$ROOT_DEV")"
-            local cmdline="root=UUID=$root_uuid rw rootfstype=$ROOT_FS"
+            local cmdline="root=UUID=$root_uuid rw rootfstype=$ROOT_FS console=tty0 console=ttyS0,115200"
             [ "$ROOT_FS" = "btrfs" ] && cmdline="$cmdline rootflags=subvol=@"
             install -d "$MYLINUX_TARGET/boot/loader/entries"
             cat > "$MYLINUX_TARGET/boot/loader/entries/mylinux.conf" <<EOF

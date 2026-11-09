@@ -68,23 +68,49 @@ The `.iso` and `.sha256` are git-ignored.
 - The MyLinux configuration tree at `/usr/share/mylinux/` (so the installer can
   copy desktop configs into the target without network access).
 - Documentation at `/usr/share/doc/mylinux/`.
-- UEFI boot entries for systemd-boot and a GRUB menu (both are configured in
-  `profiledef.sh` via `bootmodes=('uefi.grub' 'uefi.systemd-boot')`).
+- UEFI boot entries for systemd-boot in `iso/efiboot/loader/entries/` (see
+  "Boot modes" below).
 
 ## Boot modes
 
 `iso/profiledef.sh` sets:
 
 ```sh
-bootmodes=('uefi.grub' 'uefi.systemd-boot')
+bootmodes=('uefi.systemd-boot')
 ```
 
-Both UEFI paths are built. The GRUB menu also offers the screen-reader entry and
-firmware settings; systemd-boot offers the same entries from
-`iso/efiboot/loader/entries/`.
+The ISO boots via systemd-boot, the native modern UEFI loader, using the entries
+in `iso/efiboot/loader/entries/` (a normal boot and a speakup screen-reader
+boot). `mkarchiso` builds a FAT EFI system image from these files and the live
+kernel, so no GRUB tooling is needed on the build host.
+
+> **Why not GRUB for the ISO?** Archiso 92 makes `uefi.grub` and
+> `uefi.systemd-boot` mutually exclusive, and `uefi.grub` also requires
+> `grub-mkstandalone` on the build host. The *installed* system still supports
+> both GRUB and systemd-boot — that choice is made by the installer, not by the
+> ISO's own bootloader.
 
 > BIOS/legacy boot is not enabled. MyLinux installs only on UEFI, so the ISO does
 > not need a legacy path.
+
+## Live environment behaviour
+
+Two details in `iso/airootfs/` are easy to break and hard to debug, so they are
+called out here.
+
+**Serial console.** The boot entries append `console=tty0 console=ttyS0,115200`,
+and `etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service` (with an
+autologin drop-in) starts a root shell on the serial port. This makes the live
+image usable on headless machines and is what `tests/boot_iso_test.sh` drives.
+
+**No interactive first-boot prompt.** `mkarchiso` always rewrites
+`airootfs/etc/machine-id` to the literal value `uninitialized`, which makes
+`systemd-firstboot.service` (`ConditionFirstBoot=yes`) run on the live medium and
+block the console with an interactive prompt. The live environment is already
+fully configured, so
+`etc/systemd/system/sysinit.target.wants/systemd-firstboot.service` is a symlink
+to `/dev/null`, masking it. Do not ship a hand-written `machine-id` file — it is
+overwritten at build time regardless.
 
 ## Verify the ISO
 

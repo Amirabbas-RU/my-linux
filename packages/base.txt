@@ -89,3 +89,5 @@ noto-fonts
 noto-fonts-emoji
 ttf-jetbrains-mono-nerd
 fontconfig
+# console font used by /etc/vconsole.conf (FONT=ter-124b)
+terminus-font

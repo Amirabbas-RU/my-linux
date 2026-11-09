@@ -117,7 +117,7 @@ qemu-img create -f qcow2 /tmp/scratch.qcow2 12G
 - `packages/live.txt` — the live environment package set (source of truth;
   `iso/packages.x86_64` is generated).
 - `iso/airootfs/` — files overlaid onto the live environment.
-- `iso/efiboot/`, `iso/grub/` — boot menus.
+- `iso/efiboot/` — the ISO's systemd-boot menu (`loader.conf` + entries).
 - `iso/build.sh` — orchestrates `mkarchiso`.
 
 After changing `packages/live.txt`, regenerate and validate:

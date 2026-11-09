@@ -55,7 +55,7 @@ fi
 section "Shell scripts: syntax"
 
 mapfile -t SCRIPTS < <(
-    find . -type d -name .git -prune -o -type f -print \
+    find . -type d \( -name .git -o -name work -o -name out \) -prune -o -type f -print \
     | grep -E '(\.sh$|/mylinux-install$|/mylinux-[a-z-]+$)' \
     | grep -vE '\.(svg|txt|png|service|conf|md|cfg|qml|json)$' \
     | sort
@@ -253,6 +253,95 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+section "Live environment (regression guards)"
+
+if [ -s iso/airootfs/etc/pacman.d/mirrorlist ] \
+   && grep -qE '^Server *= *https?://' iso/airootfs/etc/pacman.d/mirrorlist; then
+    pass "live mirrorlist ships at least one active server"
+else
+    fail "live mirrorlist has no active Server (pacstrap cannot reach a mirror)"
+fi
+
+if [ -f iso/airootfs/etc/systemd/system/pacman-init.service ] \
+   && grep -q 'pacman-key --populate' iso/airootfs/etc/systemd/system/pacman-init.service; then
+    pass "live profile populates the pacman keyring"
+else
+    fail "live profile does not populate the pacman keyring"
+fi
+
+if [ -f iso/airootfs/etc/systemd/system/etc-pacman.d-gnupg.mount ]; then
+    pass "live profile mounts a writable pacman gnupg tmpfs"
+else
+    fail "etc-pacman.d-gnupg.mount missing (keyring cannot be written)"
+fi
+
+if [ -L iso/airootfs/etc/systemd/system/multi-user.target.wants/pacman-init.service ]; then
+    pass "pacman-init.service is enabled in the live profile"
+else
+    fail "pacman-init.service is not enabled"
+fi
+
+if [ -L iso/airootfs/etc/systemd/system/sysinit.target.wants/systemd-firstboot.service ] \
+   && [ "$(readlink iso/airootfs/etc/systemd/system/sysinit.target.wants/systemd-firstboot.service)" = "/dev/null" ]; then
+    pass "systemd-firstboot is masked on the live medium"
+else
+    fail "systemd-firstboot is not masked (interactive prompt would block the console)"
+fi
+
+if [ -f iso/airootfs/etc/machine-id ]; then
+    fail "airootfs ships a machine-id (mkarchiso overwrites it; remove it)"
+else
+    pass "no stale machine-id shipped in airootfs"
+fi
+
+# ---------------------------------------------------------------------------
+section "Installer logic (regression guards)"
+
+if grep -q 'pacstrap -K' installer/backend/install_base.sh; then
+    fail "installer uses pacstrap -K (creates an empty target keyring)"
+else
+    pass "installer does not use pacstrap -K"
+fi
+
+if grep -q 'findmnt -rn -T' installer/backend/lib/common.sh \
+   && ! sed -n '/^is_mounted()/,/^}/p' installer/backend/lib/common.sh | grep -q '\[ -b '; then
+    fail "is_mounted resolves block devices as paths (every disk looks busy)"
+else
+    pass "is_mounted distinguishes block devices from paths"
+fi
+
+if [ -f system/config/default-grub ] \
+   && grep -q '^GRUB_DISTRIBUTOR="MyLinux"' system/config/default-grub; then
+    pass "installed GRUB menu is branded MyLinux"
+else
+    fail "GRUB_DISTRIBUTOR is not MyLinux (installed menu would read 'Arch Linux')"
+fi
+
+if grep -q 'system/config/default-grub' installer/backend/install_base.sh; then
+    pass "installer deploys the branded GRUB configuration"
+else
+    fail "installer never installs system/config/default-grub"
+fi
+
+if grep -q 'console=ttyS0' system/config/default-grub; then
+    pass "installed kernel cmdline enables the serial console"
+else
+    fail "installed kernel cmdline has no serial console"
+fi
+
+if grep -q 'systemctl enable serial-getty@ttyS0.service' installer/backend/install_base.sh; then
+    pass "installer enables a serial getty on the installed system"
+else
+    fail "installer does not enable serial-getty@ttyS0 on the installed system"
+fi
+
+if sed -n '/stage_payload$/,$p' iso/build.sh | grep -qE '^\s*rm -rf "\$WORKDIR"'; then
+    pass "build.sh clears the work directory before every build"
+else
+    fail "build.sh reuses a stale work directory (mkarchiso would skip steps and reuse the old ISO)"
+fi
+
+# ---------------------------------------------------------------------------
 section "ISO profile"
 
 if [ -f iso/profiledef.sh ]; then
@@ -268,8 +357,12 @@ fi
 
 [ -d iso/airootfs ] && pass "iso/airootfs present" || fail "iso/airootfs missing"
 [ -f iso/gen_packages.sh ] && pass "iso/gen_packages.sh present" || fail "iso/gen_packages.sh missing"
-[ -f iso/grub/grub.cfg ] && pass "iso/grub/grub.cfg present" || fail "iso/grub/grub.cfg missing"
 [ -f iso/efiboot/loader/loader.conf ] && pass "systemd-boot loader.conf present" || fail "systemd-boot loader.conf missing"
+if ls iso/efiboot/loader/entries/*.conf >/dev/null 2>&1; then
+    pass "systemd-boot boot entries present"
+else
+    fail "no systemd-boot boot entries in iso/efiboot/loader/entries"
+fi
 
 if [ -f iso/airootfs/etc/passwd ] && grep -q '^root:' iso/airootfs/etc/passwd; then
     pass "live airootfs defines root"

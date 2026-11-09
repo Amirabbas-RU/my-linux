@@ -154,8 +154,7 @@ iso/
 ├── packages.x86_64          generated from packages/live.txt
 ├── pacman.conf              build-time pacman configuration
 ├── airootfs/                live environment filesystem overlay
-├── efiboot/                 systemd-boot entries
-├── grub/grub.cfg            GRUB menu for the ISO
+├── efiboot/                 systemd-boot entries (the ISO's UEFI loader)
 ├── gen_packages.sh          generates packages.x86_64
 └── build.sh                 wraps mkarchiso + checksums
 ```

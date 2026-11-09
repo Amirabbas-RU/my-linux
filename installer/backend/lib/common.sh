@@ -80,9 +80,19 @@ run() {
 }
 
 # ---- small utilities -----------------------------------------------------
-# is_mounted <device-or-path>
+# is_mounted <device-or-path> — true only when the given device/mountpoint is
+# actually in use. A block device must be matched as a *source*; resolving it as
+# a path with findmnt -T would resolve /dev/vda to the devtmpfs on /dev and
+# wrongly report every disk as busy.
 is_mounted() {
-    findmnt -rn -S "$1" >/dev/null 2>&1 || findmnt -rn -T "$1" >/dev/null 2>&1
+    local target="$1"
+    if [ -b "$target" ]; then
+        findmnt -rn -S "$target" >/dev/null 2>&1 && return 0
+        # also catch mounts of partitions belonging to this disk
+        lsblk -nro MOUNTPOINT "$target" 2>/dev/null | grep -q '[^[:space:]]' && return 0
+        return 1
+    fi
+    findmnt -rn -T "$target" >/dev/null 2>&1
 }
 
 # confirm_typed <expected> <prompt> — requires the user to type a value

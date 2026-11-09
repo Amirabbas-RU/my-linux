@@ -115,6 +115,8 @@ fi
 
 stage_payload
 
+rm -rf "$WORKDIR"
+
 mkdir -p "$WORKDIR" "$OUTDIR"
 
 say "Building MyLinux ISO (profile: $PROFILE)"

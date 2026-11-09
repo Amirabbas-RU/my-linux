@@ -113,7 +113,7 @@ QEMU=(qemu-system-x86_64
     -drive file="$DISK",if=virtio,format=qcow2
     -netdev user,id=n0
     -device virtio-net-pci,netdev=n0
-    -device virtio-vga
+    -vga std
     -display none
     -serial "file:$SERIAL_LOG"
     -monitor none
@@ -125,11 +125,16 @@ QEMU=(qemu-system-x86_64
 QEMU_PID=$!
 
 # ---- wait for the live environment --------------------------------------
+# The serial console carries ANSI from both the firmware/bootloader menu and
+# the kernel. Strip it and look only for genuine kernel/systemd evidence: the
+# bootloader's menu title also says "MyLinux", so it must never count as a
+# successful boot.
+strip() { tr -d '\r' < "$SERIAL_LOG" 2>/dev/null | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g; s/\x1b][^\a]*\a//g'; }
+
 markers=(
-    "MyLinux"
-    "Started.*Login Service"
     "Reached target.*Multi-User"
-    "mylinux-install"
+    "mylinux-live login:"
+    "MyLinux live environment"
 )
 found=""
 deadline=$(( $(date +%s) + TIMEOUT ))
@@ -139,16 +144,20 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
         warn "QEMU exited before the timeout"
         break
     fi
+    snap="$(strip)"
     for m in "${markers[@]}"; do
         if ! printf '%s\n' "$found" | grep -qxF "$m"; then
-            if grep -qE "$m" "$SERIAL_LOG" 2>/dev/null; then
+            if printf '%s\n' "$snap" | grep -qE "$m"; then
                 found="$found
 $m"
                 ok "marker reached: $m"
             fi
         fi
     done
-    if printf '%s\n' "$found" | grep -qxF "MyLinux"; then
+    # Definitive success: systemd reporting the multi-user target. The
+    # bootloader menu cannot produce this line, so it cannot false-positive.
+    if printf '%s\n' "$snap" | grep -qE "Reached target.*Multi-User"; then
+        ok "live environment reached multi-user target"
         break
     fi
     sleep 3
@@ -173,12 +182,12 @@ if [ -s "$WORK/qemu.err" ]; then
     sed 's/^/    /' "$WORK/qemu.err" | head -20 >&2
 fi
 
-if printf '%s\n' "$found" | grep -qxF "MyLinux"; then
-    printf '\n%sPASS%s  the live environment booted and displayed the MyLinux banner\n' "$GREEN" "$RESET"
+if printf '%s\n' "$found" | grep -qxF "Reached target.*Multi-User"; then
+    printf '\n%sPASS%s  the live environment booted and reached multi-user (systemd)\n' "$GREEN" "$RESET"
     exit 0
 fi
 
-printf '\n%sFAIL%s  the live environment did not reach the welcome banner\n' "$RED" "$RESET"
+printf '\n%sFAIL%s  the live environment did not reach multi-user\n' "$RED" "$RESET"
 printf '\n--- last 60 lines of the serial console ---\n'
-tail -60 "$SERIAL_LOG" 2>/dev/null | sed 's/^/    /'
+strip | grep -v '^ *$' | tail -60 | sed 's/^/    /'
 exit 1
