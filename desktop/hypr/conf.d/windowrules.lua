@@ -26,3 +26,24 @@ hl.window_rule({
     match = { class = "^(org.kde.polkit-kde-authentication-agent-1)$", workspace = "1" },
     no_focus = true,
 })
+
+hl.layer_rule({
+    match = { namespace = "^(mylinux-bar)$" },
+    blur = true,
+    ignore_alpha = 0.01,
+    no_anim = true,
+})
+
+hl.layer_rule({
+    match = { namespace = "^(mylinux-(launcher|calendar|session))$" },
+    blur = true,
+    ignore_alpha = 0.01,
+})
+
+hl.layer_rule({
+    match = { namespace = "^(mylinux-(notifications|osd))$" },
+    blur = true,
+    ignore_alpha = 0.01,
+    no_anim = true,
+    no_screen_share = true,
+})

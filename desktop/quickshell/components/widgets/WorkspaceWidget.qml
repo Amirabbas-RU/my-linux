@@ -1,36 +1,88 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 
 import "../../theme"
 
-// Workspace indicator driven by the Hyprland IPC service. Each dot is a
-// workspace; the focused one is highlighted and urgent ones pulse.
 Row {
-    id: workspaces
+    id: root
     required property ShellState shellState
-    spacing: Theme.spacing.xs
-    anchors.verticalCenter: parent.verticalCenter
+    spacing: Theme.spacing.xxs
+
+    readonly property var wsList: Hyprland.workspaces ? (Hyprland.workspaces.values ? Hyprland.workspaces.values : []) : []
+    readonly property int focusedId: Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1
+
+    function occupied(id): bool {
+        for (let i = 0; i < wsList.length; i++) {
+            if (wsList[i].id === id) return true
+        }
+        return false
+    }
+
+    function focusWorkspace(id): void {
+        focusProc.command = ["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + id + " })"]
+        focusProc.running = true
+    }
+
+    Process {
+        id: focusProc
+        running: false
+    }
 
     Repeater {
-        model: Hyprland.workspaces
+        model: 10
 
-        Rectangle {
-            required property var modelData
-            width: modelData.focused ? 22 : 8
-            height: 8
-            radius: 4
-            anchors.verticalCenter: parent.verticalCenter
-            color: modelData.focused
-                ? Theme.color.primary
-                : (modelData.urgent ? Theme.color.danger : Theme.color.textMuted)
-            Behavior on width { NumberAnimation { duration: Theme.motion.normal; easing: Theme.motion.easeOut } }
-            Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
+        Item {
+            id: cell
+            required property int index
+            readonly property int wsId: index + 1
+            readonly property bool isFocused: root.focusedId === wsId
+            readonly property bool isOccupied: root.occupied(wsId)
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: modelData.activate()
+            width: isFocused ? 26 : 22
+            height: Theme.barHeight
+
+            Behavior on width {
+                NumberAnimation {
+                    duration: root.shellState.reducedMotion ? 0 : Theme.motion.fast
+                    easing: Theme.motion.easeOut
+                }
+            }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width
+                height: 24
+                radius: Theme.radius.sm
+                color: cell.isFocused
+                    ? Theme.color.accent
+                    : (cell.isOccupied ? Theme.color.surfaceAlt : Theme.color.transparent)
+                border.width: cell.isOccupied && !cell.isFocused ? 1 : 0
+                border.color: Theme.color.border
+
+                Behavior on color {
+                    ColorAnimation { duration: root.shellState.reducedMotion ? 0 : Theme.motion.fast }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: cell.wsId
+                    color: cell.isFocused
+                        ? Theme.color.base
+                        : (cell.isOccupied ? Theme.color.text : Theme.color.textMuted)
+                    font.family: Theme.font.family
+                    font.pixelSize: Theme.font.sizeXs
+                    font.weight: cell.isFocused ? Theme.font.weightBold : Theme.font.weightMedium
+                }
+
+                HoverHandler { id: hover }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.focusWorkspace(cell.wsId)
+                }
             }
         }
     }

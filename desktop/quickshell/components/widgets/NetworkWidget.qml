@@ -1,49 +1,56 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Networking
 
 import "../../theme"
 
-// Network status via NetworkManager / nmcli.
-Item {
-    id: network
+StatusButton {
+    id: root
     required property ShellState shellState
-    implicitWidth: icon.implicitWidth + Theme.spacing.sm * 2
-    implicitHeight: Theme.iconSize + Theme.spacing.sm
+
+    readonly property var wifiDevice: {
+        const list = Networking.devices ? Networking.devices.values : []
+        if (!list) return null
+        for (let i = 0; i < list.length; i++) {
+            if (list[i].type === DeviceType.Wifi) return list[i]
+        }
+        return null
+    }
+    readonly property var wiredDevice: {
+        const list = Networking.devices ? Networking.devices.values : []
+        if (!list) return null
+        for (let i = 0; i < list.length; i++) {
+            if (list[i].type === DeviceType.Wired) return list[i]
+        }
+        return null
+    }
+    readonly property string ssid: {
+        if (!wifiDevice) return ""
+        const nets = wifiDevice.networks ? wifiDevice.networks.values : []
+        if (!nets) return ""
+        for (let i = 0; i < nets.length; i++) {
+            if (nets[i].connected) return nets[i].name || ""
+        }
+        return ""
+    }
+    readonly property bool wiredUp: wiredDevice ? wiredDevice.connected : false
+
+    glyph: {
+        if (root.wiredUp) return "\u{f0e8}"
+        if (root.ssid !== "") return "\u{f1eb}"
+        if (Networking.wifiEnabled) return "\u{f05a9}"
+        return "\u{f05aa}"
+    }
+    active: root.wiredUp || root.ssid !== ""
+    activeColor: Theme.color.text
+    tooltip: root.ssid !== "" ? root.ssid : (root.wiredUp ? "Wired" : "Disconnected")
+
+    onActivated: launcher.running = true
 
     Process {
-        id: poll
-        command: ["sh", "-c", "nmcli -t -f TYPE,NAME,DEVICE c show --active 2>/dev/null"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const lines = text.trim().split("\n").filter(l => l.length > 0)
-                let ssid = ""
-                for (const l of lines) {
-                    const parts = l.split(":")
-                    if (parts[0] === "wifi" && parts[1]) { ssid = parts[1]; break }
-                }
-                network.shellState.wifiSsid = ssid
-            }
-        }
+        id: launcher
+        running: false
+        command: ["nm-connection-editor"]
     }
-
-    Timer { interval: 5000; running: true; repeat: true; onTriggered: poll.running = true }
-
-    Text {
-        id: icon
-        anchors.centerIn: parent
-        color: Theme.color.text
-        font.family: Theme.font.family
-        font.pixelSize: Theme.font.sizeMd
-        text: network.shellState.wifiSsid !== "" ? "\u{F05AA}" : "\u{F05A9}"
-        Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
-    }
-
-    ToolTipText {
-        visible: hover.hovered
-        text: network.shellState.wifiSsid !== "" ? network.shellState.wifiSsid : "disconnected"
-    }
-    HoverHandler { id: hover }
-    TapHandler { onTapped: Quickshell.execDetached(["nm-connection-editor"]) }
 }

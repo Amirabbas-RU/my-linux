@@ -1,86 +1,107 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 
 import "../theme"
 
-// Calendar popup shown when the clock is clicked.
 PanelWindow {
-    id: calendarPopup
+    id: root
     required property ShellState shellState
 
-    anchors { top: true; bottom: true; left: true; right: true }
+    anchors { top: true; left: true; right: true; bottom: true }
     color: Theme.color.transparent
     exclusiveZone: 0
-    visible: shellState.calendarOpen
-    focusable: shellState.calendarOpen
+    visible: root.shellState.calendarOpen
+    focusable: root.shellState.calendarOpen
+    WlrLayershell.namespace: "mylinux-calendar"
+    WlrLayershell.layer: WlrLayer.Overlay
 
-    property string monthText: ""
-    property var days: []
+    readonly property var clk: clock
 
-    function toggle(): void {
-        const open = !shellState.calendarOpen
-        shellState.closeAll()
-        shellState.calendarOpen = open
+    SystemClock {
+        id: clock
+        enabled: root.shellState.calendarOpen
+        precision: SystemClock.Minutes
     }
-    function close(): void { shellState.calendarOpen = false }
 
-    Process {
-        id: calProc
-        command: ["sh", "-c", "date '+%B %Y'; cal"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const lines = text.split("\n")
-                calendarPopup.monthText = lines[0]
-                calendarPopup.days = lines.slice(1)
-            }
-        }
-    }
-    Timer { interval: 60000; running: true; repeat: true; onTriggered: calProc.running = true }
+    property string calText: ""
 
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.35)
-        TapHandler { onTapped: calendarPopup.close() }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.shellState.calendarOpen = false
+        }
     }
 
     Rectangle {
-        id: panel
+        id: card
         anchors.top: parent.top
-        anchors.topMargin: Theme.barHeight + Theme.spacing.md
+        anchors.topMargin: 66
         anchors.horizontalCenter: parent.horizontalCenter
         width: 320
-        height: calColumn.implicitHeight + Theme.spacing.xl * 2
+        height: body.implicitHeight + Theme.spacing.xl * 2
         radius: Theme.radius.lg
         color: Theme.color.surface
         border.color: Theme.color.border
         border.width: 1
 
         Column {
-            id: calColumn
-            anchors.centerIn: parent
-            spacing: Theme.spacing.sm
+            id: body
+            anchors.fill: parent
+            anchors.margins: Theme.spacing.xl
+            spacing: Theme.spacing.md
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: calendarPopup.monthText
+                text: Qt.formatDateTime(root.clk.date, "MMMM yyyy")
                 color: Theme.color.primary
-                font.family: Theme.font.uiFamily
+                font.family: Theme.font.family
                 font.pixelSize: Theme.font.sizeLg
                 font.weight: Theme.font.weightBold
             }
-            Repeater {
-                model: calendarPopup.days
-                Text {
-                    required property string modelData
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: modelData
-                    color: Theme.color.text
-                    font.family: Theme.font.family
-                    font.pixelSize: Theme.font.sizeSm
-                }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Qt.formatDateTime(root.clk.date, "dddd dd")
+                color: Theme.color.textDim
+                font.family: Theme.font.family
+                font.pixelSize: Theme.font.sizeMd
             }
+
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Theme.color.border
+            }
+
+            Text {
+                width: parent.width
+                text: root.calText !== "" ? root.calText : " "
+                color: Theme.color.text
+                font.family: Theme.font.mono
+                font.pixelSize: Theme.font.sizeSm
+                lineHeight: 1.4
+            }
+        }
+    }
+
+    Timer {
+        interval: 60000
+        running: root.shellState.calendarOpen
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: calProc.running = true
+    }
+
+    Process {
+        id: calProc
+        running: root.shellState.calendarOpen
+        command: ["cal"]
+        stdout: StdioCollector {
+            onStreamFinished: root.calText = text
         }
     }
 }

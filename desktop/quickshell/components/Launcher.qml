@@ -1,46 +1,25 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 
 import "../theme"
 
-// Application launcher overlay.
-//
-// Rendered as a full-screen dimmed overlay so it works reliably under
-// wlr-layer-shell without needing top-level popup support. Lists desktop
-// entries discovered by Quickshell's DesktopEntries singleton and launches
-// the selected entry detached from the shell.
 PanelWindow {
-    id: launcher
+    id: root
     required property ShellState shellState
 
-    anchors { top: true; bottom: true; left: true; right: true }
+    anchors { top: true; left: true; right: true; bottom: true }
     color: Theme.color.transparent
     exclusiveZone: 0
-    focusable: shellState.launcherOpen
-    visible: shellState.launcherOpen
+    visible: root.shellState.launcherOpen
+    focusable: root.shellState.launcherOpen
+    WlrLayershell.namespace: "mylinux-launcher"
+    WlrLayershell.layer: WlrLayer.Overlay
 
-    function toggle(): void {
-        const open = !shellState.launcherOpen
-        shellState.closeAll()
-        shellState.launcherOpen = open
-        if (open) loadModel()
-    }
-    function close(): void { shellState.launcherOpen = false }
-
-    function loadModel(): void {
-        appsModel.clear()
-        const apps = DesktopEntries.applications
-        const items = apps ? apps.values : []
-        for (let i = 0; i < items.length; i++) {
-            const app = items[i]
-            if (app.noDisplay) continue
-            appsModel.append({
-                name: app.name || app.id,
-                exec: app.execString || "",
-                icon: app.icon || ""
-            })
-        }
+    function close(): void {
+        root.shellState.launcherOpen = false
+        searchField.text = ""
     }
 
     function activate(execString): void {
@@ -49,20 +28,79 @@ PanelWindow {
         close()
     }
 
-    // Dim backdrop; click outside to close.
+    ListModel { id: appsModel }
+
+    Component.onCompleted: root.reload()
+
+    Connections {
+        target: DesktopEntries
+        function onApplicationsChanged() { root.reload() }
+    }
+
+    Connections {
+        target: root.shellState
+        function onLauncherOpenChanged() {
+            if (root.shellState.launcherOpen) {
+                root.reload()
+                searchField.text = ""
+                searchField.forceActiveFocus()
+            }
+        }
+    }
+
+    function reload(): void {
+        appsModel.clear()
+        const apps = DesktopEntries.applications
+        const items = apps ? (apps.values ? apps.values : []) : []
+        for (let i = 0; i < items.length; i++) {
+            const app = items[i]
+            if (app.noDisplay) continue
+            appsModel.append({
+                name: app.name || app.id,
+                exec: app.execString || "",
+                icon: app.icon || "",
+                matched: true
+            })
+        }
+    }
+
+    function filter(): void {
+        const needle = searchField.text.toLowerCase()
+        for (let i = 0; i < appsModel.count; i++) {
+            const item = appsModel.get(i)
+            appsModel.setProperty(i, "matched", needle === "" || item.name.toLowerCase().indexOf(needle) !== -1)
+        }
+    }
+
+    function launchFirstMatch(): void {
+        for (let i = 0; i < appsModel.count; i++) {
+            const item = appsModel.get(i)
+            if (item.matched) {
+                root.activate(item.exec)
+                return
+            }
+        }
+    }
+
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.45)
-        TapHandler { onTapped: launcher.close() }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.close()
+        }
     }
 
     Rectangle {
         id: panel
-        anchors.centerIn: parent
-        width: Math.min(parent.width - 80, 620)
-        height: Math.min(parent.height - 120, 460)
+        anchors.top: parent.top
+        anchors.topMargin: 120
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width - 120, 620)
+        height: Math.min(parent.height - 240, 440)
         radius: Theme.radius.lg
-        color: Theme.color.surface
+        color: Qt.rgba(0x13 / 255, 0x17 / 255, 0x22 / 255, 0.98)
         border.color: Theme.color.border
         border.width: 1
 
@@ -84,12 +122,13 @@ PanelWindow {
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.spacing.md
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Search applications\u2026"
+                    text: "Search applications"
                     color: Theme.color.textMuted
-                    font.family: Theme.font.uiFamily
+                    font.family: Theme.font.family
                     font.pixelSize: Theme.font.sizeMd
                     visible: searchField.text.length === 0
                 }
+
                 TextInput {
                     id: searchField
                     anchors.fill: parent
@@ -97,63 +136,78 @@ PanelWindow {
                     anchors.rightMargin: Theme.spacing.md
                     verticalAlignment: TextInput.AlignVCenter
                     color: Theme.color.text
-                    font.family: Theme.font.uiFamily
+                    font.family: Theme.font.family
                     font.pixelSize: Theme.font.sizeMd
-                    focus: launcher.shellState.launcherOpen
-                    onTextChanged: appsFilter.text = text
-                    Keys.onEscapePressed: launcher.close()
-                    Keys.onReturnPressed: {
-                        if (filtered.count > 0) launcher.activate(filtered.itemAt(0).exec)
-                    }
+                    onTextChanged: root.filter()
+                    Keys.onEscapePressed: root.close()
+                    Keys.onReturnPressed: root.launchFirstMatch()
+                    Keys.onDownPressed: appsFilter.incrementCurrentIndex()
+                    Keys.onUpPressed: appsFilter.decrementCurrentIndex()
                 }
             }
 
             ListView {
-                id: filtered
+                id: appsFilter
                 width: parent.width
                 height: parent.height - searchBox.height - Theme.spacing.md
                 clip: true
-                spacing: Theme.spacing.xs
+                spacing: Theme.spacing.xxs
                 model: appsModel
-                property string text: ""
+                currentIndex: -1
 
-                delegate: Rectangle {
+                delegate: Item {
+                    id: entry
                     required property string name
                     required property string exec
                     required property string icon
-                    width: filtered.width
-                    height: 44
-                    radius: Theme.radius.md
-                    color: itemHover.hovered ? Theme.color.surfaceHi : Theme.color.transparent
-                    Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
+                    required property bool matched
 
-                    Row {
-                        anchors.left: parent.left
-                        anchors.leftMargin: Theme.spacing.md
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Theme.spacing.md
+                    width: appsFilter.width
+                    height: matched ? 44 : 0
+                    visible: matched
 
-                        Image {
-                            width: 20; height: 20
-                            source: parent.parent.icon !== "" ? Quickshell.iconPath(parent.parent.icon, true) : ""
-                            sourceSize.width: 20; sourceSize.height: 20
-                            visible: status === Image.Ready
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Theme.radius.md
+                        color: (entryHover.hovered || ListView.isCurrentItem && appsFilter.currentIndex >= 0)
+                            ? Theme.color.surfaceAlt
+                            : Theme.color.transparent
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Theme.spacing.md
                             anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.spacing.md
+
+                            Image {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 20
+                                height: 20
+                                source: entry.icon !== "" ? Quickshell.iconPath(entry.icon, true) : ""
+                                sourceSize.width: 20
+                                sourceSize.height: 20
+                                visible: status === Image.Ready
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: entry.name
+                                color: Theme.color.text
+                                font.family: Theme.font.family
+                                font.pixelSize: Theme.font.sizeMd
+                            }
                         }
-                        Text {
-                            text: parent.parent.name
-                            color: Theme.color.text
-                            font.family: Theme.font.uiFamily
-                            font.pixelSize: Theme.font.sizeMd
-                            anchors.verticalCenter: parent.verticalCenter
+
+                        HoverHandler { id: entryHover }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.activate(entry.exec)
                         }
                     }
-                    HoverHandler { id: itemHover }
-                    TapHandler { onTapped: launcher.activate(parent.exec) }
                 }
             }
         }
     }
-
-    ListModel { id: appsModel }
 }

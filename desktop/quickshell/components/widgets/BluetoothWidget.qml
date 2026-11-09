@@ -1,36 +1,31 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Bluetooth
 
 import "../../theme"
 
-// Bluetooth status via rfkill/bluetoothctl.
-Item {
-    id: bt
+StatusButton {
+    id: root
     required property ShellState shellState
-    implicitWidth: icon.implicitWidth + Theme.spacing.sm * 2
-    implicitHeight: Theme.iconSize + Theme.spacing.sm
+
+    readonly property var adapter: Bluetooth.defaultAdapter
+    readonly property bool haveAdapter: adapter !== null
+    readonly property bool powered: haveAdapter ? (adapter.state === BluetoothAdapterState.Powered) : false
+
+    visible: root.haveAdapter
+    width: visible ? implicitWidth : 0
+
+    glyph: powered ? "\u{f00af}" : "\u{f00b2}"
+    active: powered
+    activeColor: Theme.color.accent
+    tooltip: !haveAdapter ? "No Bluetooth adapter" : (powered ? "Bluetooth on" : "Bluetooth off")
+
+    onActivated: launcher.running = true
 
     Process {
-        id: poll
-        command: ["sh", "-c", "rfkill list bluetooth 2>/dev/null | grep -q 'Soft blocked: no' && echo on || echo off"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: bt.shellState.bluetoothEnabled = text.trim() === "on"
-        }
+        id: launcher
+        running: false
+        command: ["blueman-manager"]
     }
-
-    Timer { interval: 6000; running: true; repeat: true; onTriggered: poll.running = true }
-
-    Text {
-        id: icon
-        anchors.centerIn: parent
-        color: bt.shellState.bluetoothEnabled ? Theme.color.accent : Theme.color.textMuted
-        font.family: Theme.font.family
-        font.pixelSize: Theme.font.sizeMd
-        text: "\u{F00AF}"
-        Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
-    }
-
-    TapHandler { onTapped: Quickshell.execDetached(["blueman-manager"]) }
 }
