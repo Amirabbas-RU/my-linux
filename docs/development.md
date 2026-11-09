@@ -47,7 +47,7 @@ branding/             Original MyLinux identity, logo, wallpaper
 
 Change `desktop/quickshell/theme/Theme.qml` for colour, spacing, radius, motion
 and typography. Mirror any palette change in
-`desktop/hypr/conf.d/appearance.conf` so the compositor matches.
+`desktop/hypr/conf.d/appearance.lua` so the compositor matches.
 
 ### Adding a shell surface
 
@@ -56,8 +56,8 @@ and typography. Mirror any palette change in
 2. Instantiate it in `shell.qml` and give it the `shellState` it needs.
 3. Expose it through the `IpcHandler` at the bottom of `shell.qml` if a keybind
    should open it.
-4. Add a keybind in `desktop/hypr/conf.d/keybinds.conf`, e.g.
-   `bind = $mainMod, X, exec, quickshell ipc call mylinux toggleWhatever`.
+4. Add a keybind in `desktop/hypr/conf.d/keybinds.lua`, e.g.
+   `hl.bind(mainMod .. " + X", hl.dsp.exec_cmd("quickshell ipc call mylinux toggleWhatever"))`.
 
 ### Validating QML
 

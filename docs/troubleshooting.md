@@ -41,10 +41,10 @@ copied it before rebooting.
    ```
 
 **Fix:** On machines without a usable GPU (some VMs), software rendering is
-required. Ensure this line is present in `~/.config/hypr/conf.d/env.conf`:
+required. Ensure this line is present in `~/.config/hypr/conf.d/env.lua`:
 
-```ini
-env = LIBGL_ALWAYS_SOFTWARE,1
+```lua
+hl.env("LIBGL_ALWAYS_SOFTWARE", "1")
 ```
 
 On machines with a real GPU, remove that line to enable hardware acceleration.
@@ -78,8 +78,8 @@ On machines with a real GPU, remove that line to enable hardware acceleration.
    sudo pacman -S quickshell qt6-declarative qt6-svg qt6-wayland
    ```
 
-**Note:** The shell is also started from `conf.d/autostart.conf`
-(`exec-once = quickshell -p ...`). If you start it manually and also have the
+**Note:** The shell is also started from `conf.d/autostart.lua`
+(`hl.exec_cmd("quickshell -p ...")`). If you start it manually and also have the
 autostart line, you will run two instances. Check for duplicates with
 `pgrep -af quickshell`.
 
@@ -381,7 +381,7 @@ bootctl --esp-path=/boot install
 - **The live environment is console-only.** The installer is a `dialog` TUI; it
   does not run a graphical installer.
 - **Software rendering is enabled by default** on installs where the installer's
-  `env.conf` is used. Remove `LIBGL_ALWAYS_SOFTWARE` on hardware with a GPU.
+  `env.lua` is used. Remove `LIBGL_ALWAYS_SOFTWARE` on hardware with a GPU.
 
 ## Getting help
 

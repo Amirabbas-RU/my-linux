@@ -26,5 +26,5 @@ copied from another distribution; all assets are generated for this project.
 | `success`    | `#5cc98a` | confirmations                |
 
 The same tokens are defined in `desktop/quickshell/theme/Theme.qml` and in
-`desktop/hypr/conf.d/appearance.conf`, so the compositor and the shell always
+`desktop/hypr/conf.d/appearance.lua`, so the compositor and the shell always
 agree on the look.
