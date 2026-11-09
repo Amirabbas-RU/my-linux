@@ -69,7 +69,10 @@ The installer walks through these screens:
 7. **Desktop**: copies `desktop/hypr` and `desktop/quickshell` into `/etc/skel`
    and the new user's home; sets the Hyprland keyboard layout; enables SDDM.
 8. **Bootloader**: GRUB (`grub-install` + `grub-mkconfig`) or systemd-boot with a
-   generated loader entry.
+   generated loader entry. GRUB is configured from `system/config/default-grub`,
+   which brands the menu as MyLinux and adds `console=tty0 console=ttyS0,115200`
+   so the installed system is reachable on a serial console; a
+   `serial-getty@ttyS0` service is enabled to match.
 9. **Unmount** and finish.
 
 Every command is written to `/var/log/mylinux-install.log` in the live
