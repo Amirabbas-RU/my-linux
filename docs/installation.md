@@ -92,6 +92,9 @@ On first login the shell starts and you get:
   and a status cluster (notifications, network, bluetooth, volume, battery, clock,
   power).
 - `SUPER + SPACE`, `SUPER + D` or `SUPER + R` opens the application launcher.
+  Type to search, then use `>` (apps), `=` (calculator), `?` (web search),
+  `wall:` (wallpapers), `clip:` (clipboard) or `session:` (lock/leave/power) to
+  switch modes.
 - `SUPER + C` opens the calendar.
 - `SUPER + Return` opens a terminal (`kitty`).
 - `SUPER + E` opens the file manager (`yazi`).

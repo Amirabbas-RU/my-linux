@@ -10,6 +10,9 @@ QtObject {
     property bool powerMenuOpen: false
     property bool notificationCenterOpen: false
 
+    property string launcherMode: "apps"
+    property string launcherQuery: ""
+
     property bool reducedMotion: false
     property bool panelVisible: true
 
@@ -29,7 +32,8 @@ QtObject {
     property bool dnd: false
     property int notificationCount: 0
 
-    property string wallpaper: "/usr/share/mylinux/wallpapers/mylinux-default.png"
+    property string wallpaper: ""
+    property string searchProvider: "DuckDuckGo"
 
     function closeAll(): void {
         launcherOpen = false
@@ -43,6 +47,27 @@ QtObject {
         const open = !launcherOpen
         closeAll()
         launcherOpen = open
+        if (open) {
+            launcherMode = "apps"
+            launcherQuery = ""
+        }
+    }
+
+    function openLauncher(mode, query): void {
+        closeAll()
+        const m = mode ? String(mode) : "apps"
+        const q = query ? String(query) : ""
+        if (m === "apps") {
+            launcherMode = "apps"
+            launcherQuery = q
+        } else {
+            const prefixes = {
+                calc: "=", web: "?", wall: "wall:", clip: "clip:", session: "session:"
+            }
+            launcherMode = m
+            launcherQuery = (prefixes[m] || "") + q
+        }
+        launcherOpen = true
     }
 
     function toggleControlCenter(): void {

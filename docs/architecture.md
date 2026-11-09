@@ -64,7 +64,7 @@ These run inside the user's Hyprland session:
 | `NetworkManager` + applet     | networking, VPN, Wi-Fi                 |
 | `Blueman`                     | Bluetooth device management            |
 | `hypridle` / `hyprlock`       | idle handling and lock screen          |
-| `hyprpaper`                   | wallpaper daemon                       |
+| `awww`                        | wallpaper daemon                       |
 
 The desktop services are started from `desktop/hypr/conf.d/autostart.lua`, with
 system-wide variants in `system/services/`.
@@ -90,7 +90,7 @@ desktop/hypr/
 │   └── keybinds.lua         keyboard shortcuts
 ├── hyprlock.conf            lock screen
 ├── hypridle.conf            idle actions
-└── hyprpaper.conf           wallpaper
+└── (wallpapers are owned by the launcher's awww backend)
 ```
 
 Users override a single concern by editing one file in `conf.d/`, without
@@ -112,6 +112,7 @@ desktop/quickshell/
 └── components/
     ├── Bar.qml               top panel
     ├── Launcher.qml          application launcher overlay
+    ├── launcher/             launcher views + backend
     ├── Osd.qml               volume/brightness OSD
     ├── NotificationCenter.qml notification daemon + popup stack
     ├── PowerMenu.qml         session menu
@@ -153,6 +154,36 @@ daemons would fight over the name. New notifications are only retained when the
 shell sets `notification.tracked = true`, so `NotificationCenter.qml` keeps its
 own `ListModel` fed from the `onNotification` signal, which also drives dismissal
 and the panel badge count.
+
+### Launcher
+
+The launcher is one overlay that switches between six modes based purely on the
+text typed into its single input field:
+
+| Prefix     | Mode          | Behaviour                                        |
+| ---------- | ------------- | ------------------------------------------------ |
+| (none)     | Applications  | fuzzy search over names and descriptions         |
+| `>`        | Applications  | same as above, with an explicit prefix           |
+| `=`        | Calculator    | live inline arithmetic, copyable result          |
+| `?`        | Web search    | opens the query in the configured provider       |
+| `wall:`    | Wallpapers    | live preview grid, applies immediately           |
+| `clip:`    | Clipboard     | searchable `cliphist` history, copy and clear    |
+| `session:` | Session       | lock, log out, suspend, reboot, shut down        |
+
+The mode is derived from the text alone, so `openLauncher(mode, query)` composes
+the prefix into the field and the rest of the view follows. Pure logic lives in
+`logic/` (`Modes.js`, `Match.js`, `Calc.js`) so it can be unit-tested outside
+QML; the state and process layer is `components/launcher/LauncherBackend.qml`,
+and each mode has its own view beside it.
+
+The calculator is a hand-written tokenizer plus recursive-descent parser — there
+is no `eval`, `Function` constructor or subprocess, so arbitrary input cannot
+execute code. Wallpapers are applied through `awww img`; clipboard history comes
+from `cliphist`, with copies written through `Quickshell.clipboardText`. State
+(`favorites`, `provider`, `wallpaper`) is persisted atomically to
+`~/.local/state/mylinux/launcher.json` via `FileView` with `atomicWrites: true`.
+Every external dependency degrades gracefully: if `awww` or `cliphist` is
+missing the relevant view explains that instead of failing.
 
 ## Layer 4 — Distribution tooling
 

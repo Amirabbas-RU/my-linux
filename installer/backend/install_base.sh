@@ -232,8 +232,10 @@ stage_configure() {
     install -Dm644 "$MYLINUX_SOURCE/branding/os-release" "$MYLINUX_TARGET/etc/os-release"
     install -Dm644 "$MYLINUX_SOURCE/branding/logo/mylinux-logo.txt" "$MYLINUX_TARGET/etc/issue"
     install -Dm644 "$MYLINUX_SOURCE/branding/logo/mylinux-logo.svg" "$MYLINUX_TARGET/usr/share/mylinux/logo/mylinux-logo.svg"
-    install -Dm644 "$MYLINUX_SOURCE/branding/wallpapers/mylinux-default.png" \
-        "$MYLINUX_TARGET/usr/share/mylinux/wallpapers/mylinux-default.png"
+    for wp in "$MYLINUX_SOURCE"/branding/wallpapers/*.png; do
+        [ -e "$wp" ] || continue
+        install -Dm644 "$wp" "$MYLINUX_TARGET/usr/share/mylinux/wallpapers/$(basename "$wp")"
+    done
 
     # --- mkinitcpio -------------------------------------------------------
     install -Dm644 "$MYLINUX_SOURCE/system/config/mkinitcpio.conf" "$MYLINUX_TARGET/etc/mkinitcpio.conf"

@@ -52,7 +52,7 @@ desktop during installation.
 | Brightness/media | `brightnessctl`, `playerctl`                                   |
 | Networking UI    | `network-manager-applet`, `nm-connection-editor`, `blueman`    |
 | Notifications    | `libnotify`, `mako`                                            |
-| Wallpaper        | `hyprpaper`, `awww`, `matugen`                                 |
+| Wallpaper        | `awww`, `matugen`                                              |
 | Lock/idle        | `hyprlock`, `hypridle`                                         |
 | Fonts            | `ttf-jetbrains-mono-nerd`, `noto-fonts`, `noto-fonts-emoji`, `ttf-dejavu` |
 | Icons/cursors    | `papirus-icon-theme`, `adwaita-cursors`                        |
@@ -77,8 +77,10 @@ Notable additions over the base set: `arch-install-scripts`, `dialog`, `squashfs
   agent; the former is a fallback for sessions that do not start it.
 - **`pipewire-jack`.** Provides JACK compatibility without a full JACK server,
   which many audio applications expect.
-- **`ahww` not bundled.** MyLinux ships `hyprpaper` for wallpapers; `awww`
-  (the maintained successor to `swww`) is available for animated wallpapers.
+- **`awww` owns wallpapers.** MyLinux launches `awww-daemon` at session start
+  and drives it from the launcher (`awww img`). `awww` provides `swww` and is
+  actively maintained; a static `hyprpaper.conf` was dropped because the launcher
+  is the single source of truth for the current wallpaper.
 
 ## Auditing the package set
 

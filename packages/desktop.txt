@@ -50,7 +50,6 @@ libnotify
 mako
 
 # --- wallpaper / theming ---
-hyprpaper
 awww
 matugen
 

@@ -17,7 +17,7 @@ sudo pacman -S --needed \
     qemu-base edk2-ovmf \
     dialog shellcheck \
     qt6-declarative qt6-svg qt6-wayland quickshell \
-    hyprland hyprpaper hyprlock hypridle hyprpolkitagent \
+    hyprland awww hyprlock hypridle hyprpolkitagent \
     pipewire wireplumber networkmanager bluez bluez-utils
 ```
 
@@ -63,6 +63,24 @@ and typography. Mirror any palette change in
 
 The Quickshell binary is `qs`; the process name is `qs`, not `quickshell`, so
 `pkill -x qs` stops the shell and `pgrep -x qs` finds it.
+
+### Launcher
+
+The launcher is a single overlay with six modes selected by a typed prefix
+(see `docs/architecture.md`). When extending it:
+
+- Keep pure logic in `desktop/quickshell/logic/` (`Modes.js`, `Match.js`,
+  `Calc.js`). These files are plain scripts with no QML imports, so they can be
+  unit-tested with any JavaScript engine.
+- Keep state and process handling in
+  `desktop/quickshell/components/launcher/LauncherBackend.qml`, and put each
+  mode's presentation in its own view beside it.
+- Add a new mode by adding an entry to `Modes.js` (`MODES`), a view component,
+  and a `refresh()` branch in `Launcher.qml`. Prefixes are literal text in the
+  input field, so `ShellState.openLauncher(mode, query)` must map the mode to its
+  prefix.
+- Never evaluate user input. The calculator parses it with a hand-written
+  tokenizer and recursive-descent parser; keep it that way.
 
 ### Shell service gotchas
 

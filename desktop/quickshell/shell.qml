@@ -44,6 +44,11 @@ ShellRoot {
         target: "mylinux"
 
         function toggleLauncher(): void { state.toggleLauncher() }
+        function openLauncher(mode: string): void { state.openLauncher(mode) }
+        function openLauncherWith(mode: string, query: string): void { state.openLauncher(mode, query) }
+        function openWallpapers(): void { state.openLauncher("wall") }
+        function openClipboard(): void { state.openLauncher("clip") }
+        function openSession(): void { state.openLauncher("session") }
         function toggleCalendar(): void { state.toggleCalendar() }
         function togglePowerMenu(): void { state.togglePowerMenu() }
         function toggleNotifications(): void { state.notificationCenterOpen = !state.notificationCenterOpen }

@@ -100,18 +100,35 @@ list is empty:
 
 ### Wallpaper is missing (black background)
 
-The default wallpaper lives at
-`/usr/share/mylinux/wallpapers/mylinux-default.png`. If it is missing or
-`hyprpaper` is not running:
+The wallpapers live in `/usr/share/mylinux/wallpapers/`, and `awww-daemon`
+applies the current one. If the background is black or `wall:` shows
+"backend unavailable":
 
 ```bash
-pacman -Q hyprpaper || sudo pacman -S hyprpaper
-pgrep -af hyprpaper || hyprpaper &
-hyprctl hyprpaper listloaded
+pacman -Q awww || sudo pacman -S awww
+pgrep -af awww-daemon || (awww-daemon &)
+awww query
 ```
 
-If you installed from a custom build where the wallpaper was not staged,
-reinstall from the ISO or copy a wallpaper and update `hyprpaper.conf`.
+`awww query` prints the image currently displayed per monitor. Open the
+wallpaper selector with `SUPER + SHIFT + W` and pick a wallpaper; the launcher
+re-applies the persisted choice on the next session start.
+
+If the wallpaper files are missing, reinstall from the ISO — the installer
+copies every `branding/wallpapers/*.png` into `/usr/share/mylinux/wallpapers/`.
+
+### Clipboard history is empty
+
+`clip:` reads `cliphist`, which is fed by `wl-paste` watchers started in
+`conf.d/autostart.lua`. If the list is empty:
+
+```bash
+pacman -Q cliphist wl-clipboard
+pgrep -af 'wl-paste --watch cliphist'
+```
+
+Copy some text, then reopen the launcher with `SUPER + V`. If `clip:` reports
+"cliphist / wl-clipboard not available", the packages are missing.
 
 ### Screen locking / idle
 
