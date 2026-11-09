@@ -66,7 +66,7 @@ These run inside the user's Hyprland session:
 | `hypridle` / `hyprlock`       | idle handling and lock screen          |
 | `hyprpaper`                   | wallpaper daemon                       |
 
-The desktop services are started from `desktop/hypr/conf.d/autostart.conf`, with
+The desktop services are started from `desktop/hypr/conf.d/autostart.lua`, with
 system-wide variants in `system/services/`.
 
 ## Layer 3 — Desktop
@@ -77,23 +77,26 @@ The compositor configuration is modular:
 
 ```
 desktop/hypr/
-├── hyprland.conf            entry point: sets variables, sources conf.d
+├── hyprland.lua             entry point: loads conf.d modules
 ├── conf.d/
-│   ├── env.conf             Wayland/toolkit environment variables
-│   ├── appearance.conf      gaps, borders, blur, rounded corners
-│   ├── animations.conf      animation curves and durations
-│   ├── input.conf           keyboard, mouse, touchpad, gestures
-│   ├── monitors.conf        display layout
-│   ├── windowrules.conf     floating/tiling rules per window class
-│   ├── autostart.conf       session programs
-│   └── keybinds.conf        keyboard shortcuts
+│   ├── env.lua              Wayland/toolkit environment variables
+│   ├── appearance.lua       gaps, borders, blur, rounded corners
+│   ├── animations.lua       animation curves and durations
+│   ├── input.lua            keyboard, mouse, touchpad, gestures
+│   ├── keyboard.lua         installer-owned keyboard layout
+│   ├── monitors.lua         display layout
+│   ├── windowrules.lua      floating/tiling rules per window class
+│   ├── autostart.lua        session programs
+│   └── keybinds.lua         keyboard shortcuts
 ├── hyprlock.conf            lock screen
 ├── hypridle.conf            idle actions
 └── hyprpaper.conf           wallpaper
 ```
 
 Users override a single concern by editing one file in `conf.d/`, without
-touching the rest of the configuration.
+touching the rest of the configuration. The entry point prepends `conf.d/` to
+`package.path` and `require()`s each module, so every module is a plain Lua
+script that may be replaced or extended independently.
 
 ### Quickshell
 
@@ -117,7 +120,7 @@ desktop/quickshell/
 ```
 
 `Theme.qml` is the single source of truth for colour, spacing, radius, motion and
-typography. The Hyprland palette in `appearance.conf` mirrors the same values, so
+typography. The Hyprland palette in `appearance.lua` mirrors the same values, so
 the compositor and the shell cannot drift apart.
 
 State flows one way: bar widgets poll the system with `Process`/`StdioCollector`

@@ -281,7 +281,8 @@ stage_desktop() {
 
     # Keyboard layout chosen at install time is reflected in the Hyprland input
     # config so the desktop matches the console keymap.
-    sed -i "s/^\(\s*kb_layout\s*=\s*\).*/\1$KEYMAP/" "$home/.config/hypr/conf.d/input.conf"
+    printf 'return { layout = "%s", variant = "", options = "" }\n' "$KEYMAP" \
+        > "$home/.config/hypr/conf.d/keyboard.lua"
 
     # SDDM: Hyprland is the only session shipped, so it is selected by default.
     # No custom theme is installed, so leave the theme at SDDM's default rather

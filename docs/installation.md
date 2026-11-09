@@ -130,6 +130,6 @@ sudo .../install_base.sh --config answers.conf --dry-run
 | Selected disk is refused             | It hosts the running system/live medium. Choose another. |
 | `pacstrap` fails                     | No network. Run `iwctl` to join Wi-Fi, then retry.  |
 | Bootloader install fails             | ESP not mounted at `/boot`. Check the install log.  |
-| System boots to a black screen       | Check `LIBGL_ALWAYS_SOFTWARE` in `conf.d/env.conf`; see `docs/troubleshooting.md`. |
+| System boots to a black screen       | Check `LIBGL_ALWAYS_SOFTWARE` in `conf.d/env.lua`; see `docs/troubleshooting.md`. |
 
 See [`docs/troubleshooting.md`](troubleshooting.md) for more.

@@ -97,5 +97,5 @@ A missing package is a build blocker and fails the test.
 2. Run `./tests/run_all.sh --fast` for syntax/structure checks.
 3. Run `./tests/run_all.sh` to confirm the package resolves.
 4. If it is a desktop runtime dependency, also make sure it is started or
-   configured where appropriate (`desktop/hypr/conf.d/autostart.conf` or a
+   configured where appropriate (`desktop/hypr/conf.d/autostart.lua` or a
    systemd unit under `system/services/`).

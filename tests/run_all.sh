@@ -127,34 +127,44 @@ fi
 section "Hyprland configuration"
 
 HYPR="$ROOT/desktop/hypr"
-for f in hyprland.conf hyprlock.conf hypridle.conf hyprpaper.conf; do
+for f in hyprland.lua hyprlock.conf hypridle.conf hyprpaper.conf; do
     if [ -f "$HYPR/$f" ]; then pass "present: hypr/$f"; else fail "missing: hypr/$f"; fi
 done
 
-for f in "$HYPR"/conf.d/*.conf; do
-    [ -f "$f" ] || continue
-    open=$(grep -o '{' "$f" | wc -l)
-    close=$(grep -o '}' "$f" | wc -l)
-    if [ "$open" -eq "$close" ]; then
-        pass "brace balance: conf.d/$(basename "$f")"
-    else
-        fail "brace balance: conf.d/$(basename "$f") ($open open, $close close)"
-    fi
-done
-
-if grep -qhE '^\s*[a-z_.]+\s*=[^=]' "$HYPR"/conf.d/*.conf; then
-    pass "conf.d uses key = value syntax"
+if have luac; then
+    for f in "$HYPR"/*.lua "$HYPR"/conf.d/*.lua; do
+        [ -f "$f" ] || continue
+        if luac -p "$f" >/dev/null 2>&1; then
+            pass "lua syntax: ${f#"$HYPR"/}"
+        else
+            fail "lua syntax: ${f#"$HYPR"/} ($(luac -p "$f" 2>&1 | head -1))"
+        fi
+    done
 else
-    fail "conf.d does not look like Hyprland syntax"
+    skip "luac not available for Lua syntax checks"
 fi
 
 for mod in env appearance animations input monitors windowrules autostart keybinds; do
-    if grep -q "conf.d/$mod.conf" "$HYPR/hyprland.conf"; then
-        pass "hyprland.conf sources $mod.conf"
+    if grep -q "\"$mod\"" "$HYPR/hyprland.lua"; then
+        pass "hyprland.lua loads $mod"
     else
-        fail "hyprland.conf does not source $mod.conf"
+        fail "hyprland.lua does not load $mod"
     fi
 done
+
+if [ -f "$HYPR/conf.d/keyboard.lua" ] && \
+   grep -q 'return { layout' "$HYPR/conf.d/keyboard.lua"; then
+    pass "installer-owned keyboard.lua present"
+else
+    fail "missing installer-owned conf.d/keyboard.lua"
+fi
+
+if grep -q '^wallpaper {' "$HYPR/hyprpaper.conf" && \
+   grep -q '^ *path *= */usr/share/mylinux/wallpapers/' "$HYPR/hyprpaper.conf"; then
+    pass "hyprpaper uses the 0.8 wallpaper block syntax"
+else
+    fail "hyprpaper.conf still uses the legacy 'wallpaper = monitor,path' form"
+fi
 
 # ---------------------------------------------------------------------------
 section "systemd units"
