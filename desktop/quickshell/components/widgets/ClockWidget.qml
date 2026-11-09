@@ -4,53 +4,60 @@ import Quickshell.Io
 
 import "../../theme"
 
-// Live clock for the top panel. Reads the system time via a Process poll so it
-// works without the shell needing a compositor clock source, and writes the
-// formatted strings into the shared ShellState for other components to read.
 Item {
-    id: clockWidget
+    id: root
     required property ShellState shellState
 
-    signal toggled()
-
-    implicitWidth: clockText.implicitWidth + Theme.spacing.lg * 2
-    implicitHeight: Theme.barHeight - Theme.barMargin * 2
-
-    Process {
-        id: tick
-        command: ["sh", "-c", "date '+%H:%M  %a %d %b'"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                clockWidget.shellState.clock = text.trim()
-            }
-        }
+    SystemClock {
+        id: clock
+        enabled: true
+        precision: SystemClock.Minutes
     }
 
-    Timer {
-        interval: 20000
-        running: true
-        repeat: true
-        onTriggered: tick.running = true
-    }
+    readonly property string timeText: Qt.formatDateTime(clock.date, "HH:mm")
+    readonly property string dateText: Qt.formatDateTime(clock.date, "ddd dd MMM")
+
+    implicitWidth: inner.implicitWidth + Theme.spacing.md * 2
+    implicitHeight: Theme.barHeight
 
     Rectangle {
-        anchors.fill: parent
-        radius: Theme.radius.pill
-        color: hover.hovered ? Theme.color.surfaceHi : Theme.color.transparent
+        anchors.centerIn: parent
+        width: parent.implicitWidth
+        height: 26
+        radius: Theme.radius.sm
+        color: hover.hovered ? Theme.color.surfaceAlt : Theme.color.transparent
+
         Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
 
-        Text {
-            id: clockText
+        Row {
+            id: inner
             anchors.centerIn: parent
-            text: clockWidget.shellState.clock !== "" ? clockWidget.shellState.clock : "--:--"
-            color: Theme.color.text
-            font.family: Theme.font.family
-            font.pixelSize: Theme.font.sizeSm
-            font.weight: Theme.font.weightMedium
+            spacing: Theme.spacing.sm
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.timeText
+                color: Theme.color.text
+                font.family: Theme.font.family
+                font.pixelSize: Theme.font.sizeMd
+                font.weight: Theme.font.weightBold
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.dateText
+                color: Theme.color.textMuted
+                font.family: Theme.font.family
+                font.pixelSize: Theme.font.sizeXs
+            }
         }
 
         HoverHandler { id: hover }
-        TapHandler { onTapped: clockWidget.toggled() }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.shellState.toggleCalendar()
+        }
     }
 }

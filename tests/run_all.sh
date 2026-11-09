@@ -110,10 +110,17 @@ if [ -n "$QMLLINT" ]; then
         fi
     done
 
+    LOCAL_ROOTS=()
+    while IFS= read -r name; do
+        [ -n "$name" ] && LOCAL_ROOTS+=("$name")
+    done < <(find desktop/quickshell -name '*.qml' -printf '%f\n' | sed 's/\.qml$//' | sort -u)
+    LOCAL_ROOT_RE="$(IFS='|'; echo "${LOCAL_ROOTS[*]}")"
+
     for f in "${QML[@]}"; do
         base="$(basename "$f")"
-        if grep -qE '^(Item|Rectangle|Row|Column|Text|QtObject|PanelWindow|ShellRoot|PopupWindow)\b' "$f" \
-           || grep -qE 'pragma Singleton' "$f"; then
+        if grep -qE '^(Item|Rectangle|Row|Column|Text|QtObject|PanelWindow|ShellRoot|PopupWindow|Repeater|ListView|MouseArea|FocusScope)\b' "$f" \
+           || grep -qE 'pragma Singleton' "$f" \
+           || { [ -n "$LOCAL_ROOT_RE" ] && grep -qE "^($LOCAL_ROOT_RE)[[:space:]]*\\{" "$f"; }; then
             pass "qml root object: $base"
         else
             fail "qml root object: $base (no recognised root element)"
@@ -164,6 +171,59 @@ if grep -q '^wallpaper {' "$HYPR/hyprpaper.conf" && \
     pass "hyprpaper uses the 0.8 wallpaper block syntax"
 else
     fail "hyprpaper.conf still uses the legacy 'wallpaper = monitor,path' form"
+fi
+
+# ---------------------------------------------------------------------------
+section "Desktop shell: panel layer"
+
+SHELL_DIR="$ROOT/desktop/quickshell"
+
+if grep -q 'mako' "$HYPR/conf.d/autostart.lua"; then
+    fail "autostart still launches mako (Quickshell owns org.freedesktop.Notifications)"
+else
+    pass "autostart does not launch a competing notification daemon"
+fi
+
+for ns in mylinux-bar mylinux-launcher mylinux-calendar mylinux-session \
+          mylinux-notifications mylinux-osd; do
+    suffix="${ns#mylinux-}"
+    if grep -rq "WlrLayershell.namespace: \"$ns\"" "$SHELL_DIR" && \
+       grep -q "$suffix" "$HYPR/conf.d/windowrules.lua"; then
+        pass "layer namespace wired: $ns"
+    else
+        fail "layer namespace not wired (shell + windowrules): $ns"
+    fi
+done
+
+if grep -rq 'SystemClock\.' "$SHELL_DIR" && \
+   ! grep -rq 'id: clock' "$SHELL_DIR"; then
+    fail "SystemClock referenced without instantiation (it is creatable, not a singleton)"
+else
+    pass "SystemClock is instantiated where its date is read"
+fi
+
+if grep -rn '^ *opacity:' "$SHELL_DIR" | grep -q 'PanelWindow'; then
+    fail "PanelWindow has no opacity property"
+else
+    pass "no opacity assignment on a PanelWindow root"
+fi
+
+if grep -q 'n.tracked = true' "$SHELL_DIR/components/NotificationCenter.qml"; then
+    pass "notification daemon opts new notifications into tracking"
+else
+    fail "NotificationCenter never sets tracked, so cards would never appear"
+fi
+
+if grep -q 'onNotification' "$SHELL_DIR/components/NotificationCenter.qml"; then
+    pass "notification cards are fed from the onNotification signal"
+else
+    fail "NotificationCenter does not listen to onNotification"
+fi
+
+if grep -q 'onApplicationsChanged' "$SHELL_DIR/components/Launcher.qml"; then
+    pass "launcher reloads when desktop entries finish scanning"
+else
+    fail "launcher reads DesktopEntries.applications only once (async list race)"
 fi
 
 # ---------------------------------------------------------------------------

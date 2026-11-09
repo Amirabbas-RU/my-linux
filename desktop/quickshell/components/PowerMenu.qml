@@ -1,110 +1,155 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 
 import "../theme"
 
-// Session power menu: lock, logout, suspend, reboot, shutdown.
 PanelWindow {
-    id: powerMenu
+    id: root
     required property ShellState shellState
 
-    anchors { top: true; bottom: true; left: true; right: true }
+    anchors { top: true; left: true; right: true; bottom: true }
     color: Theme.color.transparent
     exclusiveZone: 0
-    visible: shellState.powerMenuOpen
-    focusable: shellState.powerMenuOpen
+    visible: root.shellState.powerMenuOpen
+    focusable: root.shellState.powerMenuOpen
+    WlrLayershell.namespace: "mylinux-session"
+    WlrLayershell.layer: WlrLayer.Overlay
 
-    function toggle(): void {
-        const open = !shellState.powerMenuOpen
-        shellState.closeAll()
-        shellState.powerMenuOpen = open
+    property string confirmAction: ""
+
+    Process {
+        id: actionProc
+        running: false
+        command: []
     }
-    function close(): void { shellState.powerMenuOpen = false }
-    function run(cmd): void {
-        close()
-        Quickshell.execDetached(["sh", "-c", cmd])
+
+    function runAction(cmd): void {
+        actionProc.command = cmd
+        actionProc.running = true
+        root.shellState.powerMenuOpen = false
+    }
+
+    function doConfirm(): void {
+        const a = confirmAction
+        confirmAction = ""
+        if (a === "logout") runAction(["hyprctl", "dispatch", "hl.dsp.exit()"])
+        else if (a === "suspend") runAction(["systemctl", "suspend"])
+        else if (a === "reboot") runAction(["systemctl", "reboot"])
+        else if (a === "shutdown") runAction(["systemctl", "poweroff"])
     }
 
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.5)
-        TapHandler { onTapped: powerMenu.close() }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.shellState.powerMenuOpen = false
+        }
     }
 
     Rectangle {
+        id: card
         anchors.centerIn: parent
         width: 420
-        height: 320
-        radius: Theme.radius.lg
+        height: content.implicitHeight + Theme.spacing.xxl * 2
+        radius: Theme.radius.xl
         color: Theme.color.surface
         border.color: Theme.color.border
         border.width: 1
 
         Column {
+            id: content
             anchors.centerIn: parent
+            width: parent.width - Theme.spacing.xxl * 2
             spacing: Theme.spacing.lg
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "MyLinux"
                 color: Theme.color.text
-                font.family: Theme.font.uiFamily
-                font.pixelSize: Theme.font.sizeXl
+                font.family: Theme.font.family
+                font.pixelSize: Theme.font.sizeH2
                 font.weight: Theme.font.weightBold
             }
+
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Session"
-                color: Theme.color.textMuted
-                font.family: Theme.font.uiFamily
+                text: root.confirmAction === "" ? "Session" : ("Confirm " + root.confirmAction + "?")
+                color: root.confirmAction === "" ? Theme.color.textMuted : Theme.color.danger
+                font.family: Theme.font.family
                 font.pixelSize: Theme.font.sizeSm
             }
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Theme.spacing.md
+                spacing: Theme.spacing.sm
+                visible: root.confirmAction === ""
 
-                PowerAction { icon: "\u{F023}"; label: "Lock"; onActivated: powerMenu.run("loginctl lock-session") }
-                PowerAction { icon: "\u{F08AC}"; label: "Logout"; onActivated: powerMenu.run("hyprctl dispatch exit") }
-                PowerAction { icon: "\u{F05A8}"; label: "Reboot"; onActivated: powerMenu.run("systemctl reboot") }
-                PowerAction { icon: "\u{F0425}"; label: "Shutdown"; onActivated: powerMenu.run("systemctl poweroff") }
+                ActionButton { glyph: "\u{f023}"; label: "Lock"; onTriggered: root.runAction(["loginctl", "lock-session"]) }
+                ActionButton { glyph: "\u{f08ac}"; label: "Logout"; onTriggered: root.confirmAction = "logout" }
+                ActionButton { glyph: "\u{f186}"; label: "Suspend"; onTriggered: root.confirmAction = "suspend" }
+                ActionButton { glyph: "\u{f05a8}"; label: "Reboot"; onTriggered: root.confirmAction = "reboot" }
+                ActionButton { glyph: "\u{f0425}"; label: "Shutdown"; onTriggered: root.confirmAction = "shutdown" }
+            }
+
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.spacing.sm
+                visible: root.confirmAction !== ""
+
+                ActionButton { glyph: "\u{f00c}"; label: "Confirm"; accent: true; onTriggered: root.doConfirm() }
+                ActionButton { glyph: "\u{f00d}"; label: "Cancel"; onTriggered: root.confirmAction = "" }
             }
         }
     }
 
-    component PowerAction: Rectangle {
-        property string icon: ""
+    component ActionButton: Rectangle {
+        id: btn
+        property string glyph: ""
         property string label: ""
-        signal activated()
+        property bool accent: false
+        signal triggered()
 
-        width: 84
-        height: 84
+        width: 70
+        height: 74
         radius: Theme.radius.md
-        color: pa.hovered ? Theme.color.surfaceHi : Theme.color.surfaceAlt
+        color: hover.hovered
+            ? (accent ? Theme.color.primary : Theme.color.surfaceAlt)
+            : Theme.color.base
         border.width: 1
-        border.color: pa.hovered ? Theme.color.primary : Theme.color.border
+        border.color: hover.hovered ? Theme.color.primary : Theme.color.border
+
         Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
 
         Column {
             anchors.centerIn: parent
-            spacing: Theme.spacing.xs
+            spacing: Theme.spacing.xxs
+
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: parent.parent.icon
-                color: Theme.color.primary
+                text: btn.glyph
+                color: (hover.hovered && btn.accent) ? Theme.color.base : Theme.color.primary
                 font.family: Theme.font.family
-                font.pixelSize: Theme.font.sizeXl
+                font.pixelSize: Theme.font.sizeH2
             }
+
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: parent.parent.label
-                color: Theme.color.text
-                font.family: Theme.font.uiFamily
+                text: btn.label
+                color: (hover.hovered && btn.accent) ? Theme.color.base : Theme.color.text
+                font.family: Theme.font.family
                 font.pixelSize: Theme.font.sizeXs
             }
         }
-        HoverHandler { id: pa }
-        TapHandler { onTapped: parent.activated() }
+
+        HoverHandler { id: hover }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: btn.triggered()
+        }
     }
 }

@@ -5,6 +5,7 @@ local menu = "quickshell ipc call mylinux toggleLauncher"
 
 hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(terminal))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
+hl.bind(mainMod .. " + SPACE", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + Q", hl.dsp.window.close())
 hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.exit())
@@ -16,9 +17,12 @@ hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
 
 hl.bind(mainMod .. " + D", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + C", hl.dsp.exec_cmd("quickshell ipc call mylinux toggleCalendar"))
-hl.bind(mainMod .. " + ESCAPE", hl.dsp.exec_cmd("quickshell ipc call mylinux togglePowerMenu"))
+hl.bind(mainMod .. " + SHIFT + E", hl.dsp.exec_cmd("quickshell ipc call mylinux togglePowerMenu"))
+hl.bind(mainMod .. " + ESCAPE", hl.dsp.exec_cmd("quickshell ipc call mylinux closeAll"))
+hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("mylinux-settings"))
+hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd("awww"))
+hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("kitty -e sh -c 'cliphist list | fzf | cliphist decode | wl-copy'"))
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
-hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("makoctl dismiss --all"))
 
 hl.bind("Print", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | swappy -f -"))
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("grim - | wl-copy"))
@@ -45,6 +49,9 @@ hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:mag
 
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
+
+hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }), { mouse = true })
+hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }), { mouse = true })
 
 hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { locked = true, repeating = true })

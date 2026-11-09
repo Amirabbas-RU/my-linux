@@ -123,11 +123,36 @@ desktop/quickshell/
 typography. The Hyprland palette in `appearance.lua` mirrors the same values, so
 the compositor and the shell cannot drift apart.
 
-State flows one way: bar widgets poll the system with `Process`/`StdioCollector`
-and publish values into `ShellState`; overlays observe `ShellState` and their
-visibility follows it. Quickshell's `IpcHandler` exposes
-`quickshell ipc call mylinux <function>` so Hyprland keybinds can open the
-launcher, calendar or power menu.
+State flows one way: bar widgets read the system through Quickshell's typed
+service bindings (`Quickshell.Networking`, `Quickshell.Bluetooth`,
+`Quickshell.Services.UPower`, `Quickshell.Services.Pipewire`) or poll with
+`Process`/`StdioCollector`, and publish values into `ShellState`; overlays
+observe `ShellState` and their visibility follows it. Quickshell's `IpcHandler`
+exposes `qs ipc call mylinux <function>` so Hyprland keybinds can open the
+launcher, calendar, power menu, notification center or volume OSD, and clear
+notifications.
+
+Every surface declares a `WlrLayershell.namespace`, and `conf.d/windowrules.lua`
+matches those namespaces to apply blur. The namespaces are:
+
+| Namespace               | Surface                      | Layer   |
+| ----------------------- | ---------------------------- | ------- |
+| `mylinux-bar`           | top panel                    | top     |
+| `mylinux-launcher`      | application launcher         | overlay |
+| `mylinux-calendar`      | calendar popup               | overlay |
+| `mylinux-session`       | lock / logout / power menu   | overlay |
+| `mylinux-notifications` | notification cards + daemon  | overlay |
+| `mylinux-osd`           | volume OSD                   | overlay |
+
+The OSD and notification surfaces are marked `no_screen_share`, so they are
+deliberately absent from screencopy (`grim`) output.
+
+Quickshell's `NotificationServer` owns `org.freedesktop.Notifications`; `mako`
+is **not** started by `conf.d/autostart.lua` and must not be, or the two
+daemons would fight over the name. New notifications are only retained when the
+shell sets `notification.tracked = true`, so `NotificationCenter.qml` keeps its
+own `ListModel` fed from the `onNotification` signal, which also drives dismissal
+and the panel badge count.
 
 ## Layer 4 — Distribution tooling
 

@@ -56,8 +56,36 @@ and typography. Mirror any palette change in
 2. Instantiate it in `shell.qml` and give it the `shellState` it needs.
 3. Expose it through the `IpcHandler` at the bottom of `shell.qml` if a keybind
    should open it.
-4. Add a keybind in `desktop/hypr/conf.d/keybinds.lua`, e.g.
-   `hl.bind(mainMod .. " + X", hl.dsp.exec_cmd("quickshell ipc call mylinux toggleWhatever"))`.
+4. Give the surface a unique `WlrLayershell.namespace` and add a matching
+   `hl.layer_rule` in `desktop/hypr/conf.d/windowrules.lua` for blur.
+5. Add a keybind in `desktop/hypr/conf.d/keybinds.lua`, e.g.
+   `hl.bind(mainMod .. " + X", hl.dsp.exec_cmd("qs ipc call mylinux toggleWhatever"))`.
+
+The Quickshell binary is `qs`; the process name is `qs`, not `quickshell`, so
+`pkill -x qs` stops the shell and `pgrep -x qs` finds it.
+
+### Shell service gotchas
+
+These are verified against Quickshell 0.3.2 and will silently misbehave if
+forgotten:
+
+- `SystemClock` is a **creatable** type, not a singleton. Instantiate it
+  (`SystemClock { id: clock; enabled: true; precision: SystemClock.Minutes }`)
+  and read `clock.date`; referencing `SystemClock.date` yields `undefined`.
+- `Hyprland.workspaces`, `Networking.devices`, `DesktopEntries.applications` and
+  `NotificationServer.trackedNotifications` are `ObjectModel`s. Read
+  `.values` (they have no `.length` or `.count`).
+- `PanelWindow` has **no** `opacity` property. Fade an inner item instead, and
+  drive `visible` from a real boolean.
+- `DesktopEntries.applications` is populated asynchronously. A
+  `Component.onCompleted` read sees an empty list; reload on
+  `DesktopEntries.applicationsChanged` and again when the launcher opens.
+- `NotificationServer` emits `notification(n)` per notification but does **not**
+  re-emit `trackedNotificationsChanged` after you set `n.tracked = true`. Keep a
+  local `ListModel` from the `notification` signal instead of polling the model.
+- `NotificationServer` has no `onNotificationAdded`/`onNotificationRemoved`.
+- `Pipewire.defaultAudioSink` is `null` when the machine has no audio device;
+  guard every `.audio` access.
 
 ### Validating QML
 

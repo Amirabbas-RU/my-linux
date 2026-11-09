@@ -1,32 +1,44 @@
 import QtQuick
+import Quickshell
 
 import "../../theme"
 
-// Power button that opens the session menu.
 Item {
-    id: power
+    id: root
     required property ShellState shellState
-    signal toggled()
 
-    implicitWidth: icon.implicitWidth + Theme.spacing.md * 2
-    implicitHeight: Theme.iconSize + Theme.spacing.sm
+    implicitWidth: 30
+    implicitHeight: Theme.barHeight
 
     Rectangle {
-        anchors.fill: parent
-        radius: Theme.radius.pill
-        color: hover.hovered ? Theme.color.primary : Theme.color.surfaceAlt
+        anchors.centerIn: parent
+        width: 30
+        height: 26
+        radius: Theme.radius.sm
+        color: (hover.hovered || root.shellState.powerMenuOpen)
+            ? Theme.color.primary
+            : Theme.color.transparent
+
         Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
 
         Text {
-            id: icon
             anchors.centerIn: parent
-            text: "\u{F0425}"
-            color: power.shellState.powerMenuOpen || hover.hovered ? Theme.color.base : Theme.color.primary
+            text: "\u{f0425}"
+            color: (hover.hovered || root.shellState.powerMenuOpen)
+                ? Theme.color.base
+                : Theme.color.primary
             font.family: Theme.font.family
-            font.pixelSize: Theme.font.sizeMd
+            font.pixelSize: Theme.font.sizeLg
+
             Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
         }
+
         HoverHandler { id: hover }
-        TapHandler { onTapped: power.toggled() }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.shellState.togglePowerMenu()
+        }
     }
 }
