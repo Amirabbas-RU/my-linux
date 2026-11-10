@@ -4,7 +4,6 @@ function tokenize(input) {
         .replace(/[\u00f7]/g, "/")
         .replace(/[\u2212\u2013\u2014]/g, "-")
         .replace(/\u03c0/g, "pi")
-        .replace(/(\d),(?=\d{3}(\D|$))/g, "$1")
 
     const tokens = []
     let i = 0
