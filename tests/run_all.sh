@@ -387,6 +387,49 @@ else
     fail "favourites toggle/ordering not implemented"
 fi
 
+if grep -q '\.execute()' "$LCH/LauncherBackend.qml"; then
+    pass "applications launch through the native DesktopEntry.execute()"
+else
+    fail "launcher does not use the native DesktopEntry execution API"
+fi
+
+if grep -qE "execDetached\(\[\"sh\", *\"-c\"" "$LCH/LauncherBackend.qml"; then
+    fail "launcher passes a desktop-entry Exec string to a shell (sh -c)"
+else
+    pass "no desktop-entry Exec string is passed to a shell"
+fi
+
+if grep -q 'descriptor.exec\|%\[fFuUdDnNickvm\]' "$LCH/LauncherBackend.qml"; then
+    fail "launcher still reads the raw Exec string for launching"
+else
+    pass "launcher no longer relies on the raw Exec string"
+fi
+
+if grep -q '"which"' "$LCH/LauncherBackend.qml"; then
+    pass "launcher pre-checks executables without a shell"
+else
+    fail "launcher launches without verifying the executable exists"
+fi
+
+if grep -q 'lastError' "$LCH/LauncherBackend.qml" && \
+   grep -q 'executable not found' "$LCH/LauncherBackend.qml"; then
+    pass "failed launches surface a visible error"
+else
+    fail "failed launches are silent"
+fi
+
+if grep -qF '(?=\d{3}' "$LOGIC/Calc.js"; then
+    fail "calculator still strips commas (breaks multi-argument functions)"
+else
+    pass "calculator preserves commas as argument separators"
+fi
+
+if grep -q 'min\|max\|atan2' "$LOGIC/Calc.js"; then
+    pass "calculator supports multi-argument functions"
+else
+    fail "calculator multi-argument functions missing"
+fi
+
 if grep -q 'openLauncher' "$SHELL_DIR/shell.qml" && \
    grep -q 'openWallpapers' "$SHELL_DIR/shell.qml" && \
    grep -q 'openClipboard' "$SHELL_DIR/shell.qml" && \
