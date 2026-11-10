@@ -28,6 +28,8 @@ Item {
 
     property string lastError: ""
 
+    property var pendingLaunch: null
+
     property bool stateReady: false
     property bool stateLoaded: false
 
@@ -157,19 +159,42 @@ Item {
 
     function launchApp(descriptor) {
         if (!descriptor) return
-        const app = descriptor.app
-        if (app && typeof app.execute === "function") {
-            try {
-                app.execute()
-                return
-            } catch (e) {
-                backend.lastError = "Launch failed: " + e
-            }
+        const entry = descriptor.entry
+        const app = entry && entry.app ? entry.app : null
+        const argv = app && app.command && app.command.length > 0
+            ? app.command.slice() : []
+        if (argv.length === 0) {
+            backend.lastError = "Cannot launch " + (descriptor.name || "application")
+            return
         }
-        let cmd = descriptor.exec || ""
-        cmd = cmd.replace(/%[fFuUdDnNickvm]/g, "").trim()
-        if (cmd.length === 0) return
-        Quickshell.execDetached(["sh", "-c", cmd])
+        backend.pendingLaunch = { app: app, argv: argv, name: descriptor.name || argv[0] }
+        launchCheckProc.command = ["which", argv[0]]
+        launchCheckProc.running = false
+        launchCheckProc.running = true
+    }
+
+    Process {
+        id: launchCheckProc
+        onExited: function (code) {
+            const pending = backend.pendingLaunch
+            backend.pendingLaunch = null
+            if (!pending) return
+            if (code !== 0) {
+                backend.lastError = "Cannot launch " + pending.name + ": executable not found"
+                return
+            }
+            if (pending.app && typeof pending.app.execute === "function") {
+                try {
+                    pending.app.execute()
+                    backend.lastError = ""
+                    return
+                } catch (e) {
+                    backend.lastError = "Launch failed: " + e
+                    return
+                }
+            }
+            Quickshell.execDetached(pending.argv)
+        }
     }
 
     function reloadWallpapers() {
