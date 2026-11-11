@@ -11,11 +11,12 @@ import "launcher"
 PanelWindow {
     id: root
     required property ShellState shellState
+    required property LauncherBackend backend
 
     anchors { top: true; left: true; right: true; bottom: true }
     color: Theme.color.transparent
     exclusiveZone: 0
-    visible: root.shellState.launcherOpen
+    visible: root.shellState.launcherOpen || panel.opacity > 0.002
     focusable: root.shellState.launcherOpen
     WlrLayershell.namespace: "mylinux-launcher"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -32,10 +33,6 @@ PanelWindow {
     property string toast: ""
 
     property var calcResult: null
-
-    LauncherBackend {
-        id: backend
-    }
 
     function close(): void {
         root.shellState.launcherOpen = false
@@ -196,6 +193,13 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.45)
+        opacity: root.shellState.launcherOpen ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: root.shellState.reducedMotion ? 0 : Theme.motion.normal
+                easing.type: Theme.motion.easeOut
+            }
+        }
 
         MouseArea {
             anchors.fill: parent
@@ -216,9 +220,20 @@ PanelWindow {
         border.width: 1
         opacity: root.shellState.launcherOpen ? 1.0 : 0.0
         scale: root.shellState.launcherOpen ? 1.0 : 0.97
+        transformOrigin: Item.Top
 
-        Behavior on opacity { NumberAnimation { duration: Theme.motion.normal; easing.type: Theme.motion.easeOut } }
-        Behavior on scale { NumberAnimation { duration: Theme.motion.normal; easing.type: Theme.motion.easeOut } }
+        Behavior on opacity {
+            NumberAnimation {
+                duration: root.shellState.reducedMotion ? 0 : Theme.motion.normal
+                easing.type: Theme.motion.easeOut
+            }
+        }
+        Behavior on scale {
+            NumberAnimation {
+                duration: root.shellState.reducedMotion ? 0 : Theme.motion.normal
+                easing.type: Theme.motion.easeOut
+            }
+        }
 
         Column {
             anchors.fill: parent

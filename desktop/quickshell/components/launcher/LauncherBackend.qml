@@ -5,6 +5,7 @@ import Quickshell.Io
 import "../../theme"
 import "../../logic/Calc.js" as Calc
 import "../../logic/Match.js" as Match
+import "../../logic/Modes.js" as Modes
 
 Item {
     id: backend
@@ -35,6 +36,34 @@ Item {
 
     readonly property string wallpaperDir: "/usr/share/mylinux/wallpapers"
     readonly property string stateFile: Quickshell.env("HOME") + "/.local/state/mylinux/launcher.json"
+
+    readonly property var providers: Modes.providers().map(function (p) { return p.name })
+    readonly property int appCount: backend.appEntries.length
+
+    property string hostname: ""
+    property string kernel: ""
+    property string sessionType: "Wayland"
+    property string compositor: "Hyprland"
+
+    function reloadSystemInfo() {
+        infoProc.running = false
+        infoProc.running = true
+    }
+
+    Process {
+        id: infoProc
+        command: ["sh", "-c",
+            "printf '%s\\n' \"$(uname -n)\" \"$(uname -r)\" \"${XDG_SESSION_TYPE:-wayland}\" \"${XDG_CURRENT_DESKTOP:-Hyprland}\""]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.split("\n")
+                if (lines.length > 0) backend.hostname = lines[0].trim()
+                if (lines.length > 1) backend.kernel = lines[1].trim()
+                if (lines.length > 2 && lines[2].trim().length > 0) backend.sessionType = lines[2].trim()
+                if (lines.length > 3 && lines[3].trim().length > 0) backend.compositor = lines[3].trim()
+            }
+        }
+    }
 
     function sanitizeFavoriteIds(list) {
         const out = []
@@ -73,6 +102,7 @@ Item {
         backend.stateReady = true
         backend.reloadApplications()
         backend.reloadWallpapers()
+        backend.reloadSystemInfo()
         backend.restoreWallpaperAtStartup()
     }
 

@@ -9,6 +9,10 @@ QtObject {
     property bool calendarOpen: false
     property bool powerMenuOpen: false
     property bool notificationCenterOpen: false
+    property bool settingsOpen: false
+    property bool networkPopupOpen: false
+    property bool volumePopupOpen: false
+    property string settingsPage: "appearance"
 
     property string launcherMode: "apps"
     property string launcherQuery: ""
@@ -41,6 +45,9 @@ QtObject {
         calendarOpen = false
         powerMenuOpen = false
         notificationCenterOpen = false
+        settingsOpen = false
+        networkPopupOpen = false
+        volumePopupOpen = false
     }
 
     function toggleLauncher(): void {
@@ -86,5 +93,29 @@ QtObject {
         const open = !powerMenuOpen
         closeAll()
         powerMenuOpen = open
+    }
+
+    function toggleSettings(): void {
+        const open = !settingsOpen
+        closeAll()
+        settingsOpen = open
+    }
+
+    function toggleNetwork(): void {
+        const open = !networkPopupOpen
+        closeAll()
+        networkPopupOpen = open
+    }
+
+    function toggleVolume(): void {
+        const open = !volumePopupOpen
+        closeAll()
+        volumePopupOpen = open
+    }
+
+    function openSettings(page): void {
+        closeAll()
+        if (page && String(page).length > 0) settingsPage = String(page)
+        settingsOpen = true
     }
 }

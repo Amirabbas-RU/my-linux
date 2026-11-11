@@ -60,7 +60,7 @@ Item {
                     border.width: current ? 2 : (highlighted ? 2 : 1)
                     border.color: current ? Theme.color.primary
                         : (highlighted ? Theme.color.accent
-                        : (cellHover.hovered ? Theme.color.border : Theme.color.borderDim)))
+                        : (cellHover.hovered ? Theme.color.border : Theme.color.borderDim))
                     clip: true
 
                     Behavior on border.color { ColorAnimation { duration: Theme.motion.fast } }

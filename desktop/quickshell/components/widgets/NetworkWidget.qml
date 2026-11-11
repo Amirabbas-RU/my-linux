@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Networking
 
 import "../../theme"
@@ -46,11 +45,5 @@ StatusButton {
     activeColor: Theme.color.text
     tooltip: root.ssid !== "" ? root.ssid : (root.wiredUp ? "Wired" : "Disconnected")
 
-    onActivated: launcher.running = true
-
-    Process {
-        id: launcher
-        running: false
-        command: ["nm-connection-editor"]
-    }
+    onActivated: root.shellState.toggleNetwork()
 }

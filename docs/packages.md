@@ -54,7 +54,7 @@ desktop during installation.
 | Notifications    | `libnotify`, `mako`                                            |
 | Wallpaper        | `awww`, `matugen`                                              |
 | Lock/idle        | `hyprlock`, `hypridle`                                         |
-| Fonts            | `ttf-jetbrains-mono-nerd`, `noto-fonts`, `noto-fonts-emoji`, `ttf-dejavu` |
+| Fonts            | `ttf-jetbrains-mono-nerd`, `noto-fonts`, `noto-fonts-cjk`, `noto-fonts-emoji`, `ttf-dejavu` |
 | Icons/cursors    | `papirus-icon-theme`, `adwaita-cursors`                        |
 | Theming tools    | `gtk3`, `qt6ct`, `nwg-look`                                    |
 | Audio/Bluetooth  | `pipewire`, `wireplumber`, `pavucontrol`, `bluez`, `bluez-utils` |

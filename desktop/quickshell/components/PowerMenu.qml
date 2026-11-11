@@ -12,7 +12,7 @@ PanelWindow {
     anchors { top: true; left: true; right: true; bottom: true }
     color: Theme.color.transparent
     exclusiveZone: 0
-    visible: root.shellState.powerMenuOpen
+    visible: root.shellState.powerMenuOpen || card.opacity > 0.002
     focusable: root.shellState.powerMenuOpen
     WlrLayershell.namespace: "mylinux-session"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -43,6 +43,13 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.5)
+        opacity: root.shellState.powerMenuOpen ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: root.shellState.reducedMotion ? 0 : Theme.motion.normal
+                easing.type: Theme.motion.easeOut
+            }
+        }
         MouseArea {
             anchors.fill: parent
             onClicked: root.shellState.powerMenuOpen = false
@@ -58,6 +65,21 @@ PanelWindow {
         color: Theme.color.surface
         border.color: Theme.color.border
         border.width: 1
+
+        opacity: root.shellState.powerMenuOpen ? 1.0 : 0.0
+        scale: root.shellState.powerMenuOpen ? 1.0 : 0.96
+        Behavior on opacity {
+            NumberAnimation {
+                duration: root.shellState.reducedMotion ? 0 : Theme.motion.normal
+                easing.type: Theme.motion.easeOut
+            }
+        }
+        Behavior on scale {
+            NumberAnimation {
+                duration: root.shellState.reducedMotion ? 0 : Theme.motion.normal
+                easing.type: Theme.motion.easeOut
+            }
+        }
 
         Column {
             id: content

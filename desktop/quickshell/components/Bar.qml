@@ -14,8 +14,8 @@ PanelWindow {
         left: true
         right: true
     }
-    implicitHeight: Theme.barHeight + Theme.barTopMargin * 2
-    exclusiveZone: Theme.barHeight + Theme.barTopMargin * 2
+    implicitHeight: Theme.barHeight
+    exclusiveZone: Theme.barHeight
     color: Theme.color.transparent
     WlrLayershell.namespace: "mylinux-bar"
     WlrLayershell.layer: WlrLayer.Top
@@ -23,28 +23,7 @@ PanelWindow {
     Rectangle {
         id: plate
         anchors.fill: parent
-        anchors.topMargin: Theme.barTopMargin
-        anchors.leftMargin: Theme.barMargin
-        anchors.rightMargin: Theme.barMargin
-        anchors.bottomMargin: Theme.barTopMargin
-        radius: Theme.radius.md
         color: Theme.color.surface
-        border.color: Theme.color.borderDim
-        border.width: 1
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: parent.radius
-            height: 1
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: Theme.color.transparent }
-                GradientStop { position: 0.5; color: Theme.color.borderStrong }
-                GradientStop { position: 1.0; color: Theme.color.transparent }
-            }
-        }
 
         Item {
             id: leftSection

@@ -35,9 +35,17 @@ hl.layer_rule({
 })
 
 hl.layer_rule({
-    match = { namespace = "^(mylinux-(launcher|calendar|session))$" },
+    match = { namespace = "^(mylinux-(launcher|calendar|session|settings))$" },
     blur = true,
     ignore_alpha = 0.01,
+    no_anim = true,
+})
+
+hl.layer_rule({
+    match = { namespace = "^(mylinux-(network|volume))$" },
+    blur = true,
+    ignore_alpha = 0.01,
+    no_anim = true,
 })
 
 hl.layer_rule({

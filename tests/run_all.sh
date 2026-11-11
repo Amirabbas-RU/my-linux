@@ -211,7 +211,7 @@ else
 fi
 
 for ns in mylinux-bar mylinux-launcher mylinux-calendar mylinux-session \
-          mylinux-notifications mylinux-osd; do
+          mylinux-notifications mylinux-osd mylinux-network mylinux-volume; do
     suffix="${ns#mylinux-}"
     if grep -rq "WlrLayershell.namespace: \"$ns\"" "$SHELL_DIR" && \
        grep -q "$suffix" "$HYPR/conf.d/windowrules.lua"; then

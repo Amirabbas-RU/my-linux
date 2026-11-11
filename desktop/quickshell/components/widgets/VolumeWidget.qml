@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.Pipewire
 
 import "../../theme"
@@ -25,7 +24,7 @@ StatusButton {
     activeColor: Theme.color.text
     tooltip: root.muted ? "Muted" : (root.percent + "%")
 
-    onActivated: launcher.running = true
+    onActivated: root.shellState.toggleVolume()
 
     WheelHandler {
         onWheel: (event) => {
@@ -33,11 +32,5 @@ StatusButton {
             const step = event.angleDelta.y > 0 ? 0.05 : -0.05
             root.audio.volume = Math.max(0.0, Math.min(1.0, root.audio.volume + step))
         }
-    }
-
-    Process {
-        id: launcher
-        running: false
-        command: ["pavucontrol"]
     }
 }

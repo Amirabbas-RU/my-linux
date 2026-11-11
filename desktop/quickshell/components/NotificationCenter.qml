@@ -11,7 +11,7 @@ PanelWindow {
 
     anchors { top: true; right: true }
     margins {
-        top: Theme.barHeight + Theme.barTopMargin * 2 + Theme.spacing.sm
+        top: Theme.barHeight + Theme.spacing.sm
         right: Theme.barMargin
     }
     implicitWidth: 340

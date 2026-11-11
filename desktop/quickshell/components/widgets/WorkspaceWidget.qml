@@ -67,12 +67,12 @@ Row {
 
                 Text {
                     anchors.centerIn: parent
-                    text: cell.wsId
+                    text: ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"][cell.wsId - 1]
                     color: cell.isFocused
                         ? Theme.color.base
                         : (cell.isOccupied ? Theme.color.text : Theme.color.textMuted)
-                    font.family: Theme.font.family
-                    font.pixelSize: Theme.font.sizeXs
+                    font.family: Theme.font.cjk
+                    font.pixelSize: Theme.font.sizeMd
                     font.weight: cell.isFocused ? Theme.font.weightBold : Theme.font.weightMedium
                 }
 
