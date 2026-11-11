@@ -70,7 +70,7 @@ Item {
                     border.width: index === root.selectedIndex ? 2 : 1
                     border.color: index === root.selectedIndex
                         ? (modelData.destructive ? Theme.color.danger : Theme.color.primary)
-                        : (actionHover.hovered ? Theme.color.border : Qt.rgba(0x2A / 255, 0x32 / 255, 0x42 / 255, 0.6))
+                        : (actionHover.hovered ? Theme.color.border : Theme.color.borderDim)
 
                     Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
 
@@ -131,9 +131,9 @@ Item {
                 width: parent.width
                 height: 64
                 radius: Theme.radius.md
-                color: Qt.rgba(0xEF / 255, 0x64 / 255, 0x7C / 255, 0.10)
+                color: Theme.color.danger
                 border.width: 1
-                border.color: Qt.rgba(0xEF / 255, 0x64 / 255, 0x7C / 255, 0.4)
+                border.color: Theme.color.danger
 
                 Text {
                     anchors.fill: parent

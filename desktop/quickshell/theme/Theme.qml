@@ -3,23 +3,25 @@ import QtQuick
 
 QtObject {
     readonly property QtObject color: QtObject {
-        readonly property color base:        "#0B0D12"
-        readonly property color surface:     "#131722"
-        readonly property color surfaceAlt:  "#1B2230"
-        readonly property color border:      "#2A3242"
+        readonly property color base:        "#000000"
+        readonly property color surface:     "#0a0a0a"
+        readonly property color surfaceAlt:  "#161310"
+        readonly property color border:      "#cdc4ba"
+        readonly property color borderDim:   "#cdc4ba0f"
+        readonly property color borderStrong: "#cdc4ba3d"
+        readonly property color text:        "#cdc4ba"
+        readonly property color textDim:     "#b0a9a0"
+        readonly property color textMuted:   "#958f87"
+        readonly property color textFaint:   "#7a756e"
 
-        readonly property color text:        "#F3F5F7"
-        readonly property color textDim:     "#A2AAB8"
-        readonly property color textMuted:   "#707B8D"
+        readonly property color primary:     "#ce5e32"
+        readonly property color primaryDim:  "#ce5e32"
+        readonly property color accent:      "#cdc4ba"
+        readonly property color accentDim:   "#b0a9a0"
 
-        readonly property color primary:     "#F5A623"
-        readonly property color primaryDim:  "#C9861C"
-        readonly property color accent:      "#7C6CF0"
-        readonly property color accentDim:   "#5A4DC4"
-
-        readonly property color success:     "#4CC38A"
-        readonly property color warning:     "#F5A623"
-        readonly property color danger:      "#EF647C"
+        readonly property color success:     "#b0a9a0"
+        readonly property color warning:     "#ce5e32"
+        readonly property color danger:      "#ce5e32"
 
         readonly property color shadow:      "#000000"
         readonly property color transparent: "transparent"
@@ -45,9 +47,11 @@ QtObject {
     }
 
     readonly property QtObject font: QtObject {
-        readonly property string family:   "Inter"
-        readonly property string mono:     "JetBrains Mono"
-        readonly property string fallback: "Noto Sans"
+        readonly property string family:   "Geist"
+        readonly property string mono:     "Geist Mono"
+        readonly property string fallback: "Geist"
+        readonly property string pixel:    "Geist Pixel Square"
+        readonly property string persian:  "Vazirmatn"
 
         readonly property int sizeXs:    12
         readonly property int sizeSm:    12

@@ -28,8 +28,8 @@ PanelWindow {
         anchors.rightMargin: Theme.barMargin
         anchors.bottomMargin: Theme.barTopMargin
         radius: Theme.radius.md
-        color: Qt.rgba(0x13 / 255, 0x17 / 255, 0x22 / 255, 0.94)
-        border.color: Theme.color.border
+        color: Theme.color.surface
+        border.color: Theme.color.borderDim
         border.width: 1
 
         Rectangle {
@@ -41,7 +41,7 @@ PanelWindow {
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: Theme.color.transparent }
-                GradientStop { position: 0.5; color: Qt.rgba(0xf5 / 255, 0xa6 / 255, 0x23 / 255, 0.25) }
+                GradientStop { position: 0.5; color: Theme.color.borderStrong }
                 GradientStop { position: 1.0; color: Theme.color.transparent }
             }
         }

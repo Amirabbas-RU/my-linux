@@ -211,8 +211,8 @@ PanelWindow {
         width: Math.min(parent.width - 120, 680)
         height: Math.min(parent.height * 0.76, 520)
         radius: Theme.radius.xl
-        color: Qt.rgba(0x13 / 255, 0x17 / 255, 0x22 / 255, 0.98)
-        border.color: Theme.color.border
+        color: Theme.color.surface
+        border.color: Theme.color.borderDim
         border.width: 1
         opacity: root.shellState.launcherOpen ? 1.0 : 0.0
         scale: root.shellState.launcherOpen ? 1.0 : 0.97

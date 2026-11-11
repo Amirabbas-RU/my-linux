@@ -90,7 +90,7 @@ PanelWindow {
                 width: column.width
                 height: content.implicitHeight + Theme.spacing.md * 2
                 radius: Theme.radius.md
-                color: Qt.rgba(0x13 / 255, 0x17 / 255, 0x22 / 255, 0.97)
+                color: Theme.color.surface
                 border.width: 1
                 border.color: card.urgency === NotificationUrgency.Critical
                     ? Theme.color.danger
