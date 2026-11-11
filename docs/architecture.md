@@ -64,9 +64,9 @@ These run inside the user's Hyprland session:
 | `NetworkManager` + applet     | networking, VPN, Wi-Fi                 |
 | `Blueman`                     | Bluetooth device management            |
 | `hypridle` / `hyprlock`       | idle handling and lock screen          |
-| `hyprpaper`                   | wallpaper daemon                       |
+| `awww`                        | wallpaper daemon                       |
 
-The desktop services are started from `desktop/hypr/conf.d/autostart.conf`, with
+The desktop services are started from `desktop/hypr/conf.d/autostart.lua`, with
 system-wide variants in `system/services/`.
 
 ## Layer 3 — Desktop
@@ -77,23 +77,26 @@ The compositor configuration is modular:
 
 ```
 desktop/hypr/
-├── hyprland.conf            entry point: sets variables, sources conf.d
+├── hyprland.lua             entry point: loads conf.d modules
 ├── conf.d/
-│   ├── env.conf             Wayland/toolkit environment variables
-│   ├── appearance.conf      gaps, borders, blur, rounded corners
-│   ├── animations.conf      animation curves and durations
-│   ├── input.conf           keyboard, mouse, touchpad, gestures
-│   ├── monitors.conf        display layout
-│   ├── windowrules.conf     floating/tiling rules per window class
-│   ├── autostart.conf       session programs
-│   └── keybinds.conf        keyboard shortcuts
+│   ├── env.lua              Wayland/toolkit environment variables
+│   ├── appearance.lua       gaps, borders, blur, rounded corners
+│   ├── animations.lua       animation curves and durations
+│   ├── input.lua            keyboard, mouse, touchpad, gestures
+│   ├── keyboard.lua         installer-owned keyboard layout
+│   ├── monitors.lua         display layout
+│   ├── windowrules.lua      floating/tiling rules per window class
+│   ├── autostart.lua        session programs
+│   └── keybinds.lua         keyboard shortcuts
 ├── hyprlock.conf            lock screen
 ├── hypridle.conf            idle actions
-└── hyprpaper.conf           wallpaper
+└── (wallpapers are owned by the launcher's awww backend)
 ```
 
 Users override a single concern by editing one file in `conf.d/`, without
-touching the rest of the configuration.
+touching the rest of the configuration. The entry point prepends `conf.d/` to
+`package.path` and `require()`s each module, so every module is a plain Lua
+script that may be replaced or extended independently.
 
 ### Quickshell
 
@@ -109,6 +112,7 @@ desktop/quickshell/
 └── components/
     ├── Bar.qml               top panel
     ├── Launcher.qml          application launcher overlay
+    ├── launcher/             launcher views + backend
     ├── Osd.qml               volume/brightness OSD
     ├── NotificationCenter.qml notification daemon + popup stack
     ├── PowerMenu.qml         session menu
@@ -117,14 +121,69 @@ desktop/quickshell/
 ```
 
 `Theme.qml` is the single source of truth for colour, spacing, radius, motion and
-typography. The Hyprland palette in `appearance.conf` mirrors the same values, so
+typography. The Hyprland palette in `appearance.lua` mirrors the same values, so
 the compositor and the shell cannot drift apart.
 
-State flows one way: bar widgets poll the system with `Process`/`StdioCollector`
-and publish values into `ShellState`; overlays observe `ShellState` and their
-visibility follows it. Quickshell's `IpcHandler` exposes
-`quickshell ipc call mylinux <function>` so Hyprland keybinds can open the
-launcher, calendar or power menu.
+State flows one way: bar widgets read the system through Quickshell's typed
+service bindings (`Quickshell.Networking`, `Quickshell.Bluetooth`,
+`Quickshell.Services.UPower`, `Quickshell.Services.Pipewire`) or poll with
+`Process`/`StdioCollector`, and publish values into `ShellState`; overlays
+observe `ShellState` and their visibility follows it. Quickshell's `IpcHandler`
+exposes `qs ipc call mylinux <function>` so Hyprland keybinds can open the
+launcher, calendar, power menu, notification center or volume OSD, and clear
+notifications.
+
+Every surface declares a `WlrLayershell.namespace`, and `conf.d/windowrules.lua`
+matches those namespaces to apply blur. The namespaces are:
+
+| Namespace               | Surface                      | Layer   |
+| ----------------------- | ---------------------------- | ------- |
+| `mylinux-bar`           | top panel                    | top     |
+| `mylinux-launcher`      | application launcher         | overlay |
+| `mylinux-calendar`      | calendar popup               | overlay |
+| `mylinux-session`       | lock / logout / power menu   | overlay |
+| `mylinux-notifications` | notification cards + daemon  | overlay |
+| `mylinux-osd`           | volume OSD                   | overlay |
+
+The OSD and notification surfaces are marked `no_screen_share`, so they are
+deliberately absent from screencopy (`grim`) output.
+
+Quickshell's `NotificationServer` owns `org.freedesktop.Notifications`; `mako`
+is **not** started by `conf.d/autostart.lua` and must not be, or the two
+daemons would fight over the name. New notifications are only retained when the
+shell sets `notification.tracked = true`, so `NotificationCenter.qml` keeps its
+own `ListModel` fed from the `onNotification` signal, which also drives dismissal
+and the panel badge count.
+
+### Launcher
+
+The launcher is one overlay that switches between six modes based purely on the
+text typed into its single input field:
+
+| Prefix     | Mode          | Behaviour                                        |
+| ---------- | ------------- | ------------------------------------------------ |
+| (none)     | Applications  | fuzzy search over names and descriptions         |
+| `>`        | Applications  | same as above, with an explicit prefix           |
+| `=`        | Calculator    | live inline arithmetic, copyable result          |
+| `?`        | Web search    | opens the query in the configured provider       |
+| `wall:`    | Wallpapers    | live preview grid, applies immediately           |
+| `clip:`    | Clipboard     | searchable `cliphist` history, copy and clear    |
+| `session:` | Session       | lock, log out, suspend, reboot, shut down        |
+
+The mode is derived from the text alone, so `openLauncher(mode, query)` composes
+the prefix into the field and the rest of the view follows. Pure logic lives in
+`logic/` (`Modes.js`, `Match.js`, `Calc.js`) so it can be unit-tested outside
+QML; the state and process layer is `components/launcher/LauncherBackend.qml`,
+and each mode has its own view beside it.
+
+The calculator is a hand-written tokenizer plus recursive-descent parser — there
+is no `eval`, `Function` constructor or subprocess, so arbitrary input cannot
+execute code. Wallpapers are applied through `awww img`; clipboard history comes
+from `cliphist`, with copies written through `Quickshell.clipboardText`. State
+(`favorites`, `provider`, `wallpaper`) is persisted atomically to
+`~/.local/state/mylinux/launcher.json` via `FileView` with `atomicWrites: true`.
+Every external dependency degrades gracefully: if `awww` or `cliphist` is
+missing the relevant view explains that instead of failing.
 
 ## Layer 4 — Distribution tooling
 

@@ -17,7 +17,7 @@ sudo pacman -S --needed \
     qemu-base edk2-ovmf \
     dialog shellcheck \
     qt6-declarative qt6-svg qt6-wayland quickshell \
-    hyprland hyprpaper hyprlock hypridle hyprpolkitagent \
+    hyprland awww hyprlock hypridle hyprpolkitagent \
     pipewire wireplumber networkmanager bluez bluez-utils
 ```
 
@@ -47,7 +47,7 @@ branding/             Original MyLinux identity, logo, wallpaper
 
 Change `desktop/quickshell/theme/Theme.qml` for colour, spacing, radius, motion
 and typography. Mirror any palette change in
-`desktop/hypr/conf.d/appearance.conf` so the compositor matches.
+`desktop/hypr/conf.d/appearance.lua` so the compositor matches.
 
 ### Adding a shell surface
 
@@ -56,8 +56,54 @@ and typography. Mirror any palette change in
 2. Instantiate it in `shell.qml` and give it the `shellState` it needs.
 3. Expose it through the `IpcHandler` at the bottom of `shell.qml` if a keybind
    should open it.
-4. Add a keybind in `desktop/hypr/conf.d/keybinds.conf`, e.g.
-   `bind = $mainMod, X, exec, quickshell ipc call mylinux toggleWhatever`.
+4. Give the surface a unique `WlrLayershell.namespace` and add a matching
+   `hl.layer_rule` in `desktop/hypr/conf.d/windowrules.lua` for blur.
+5. Add a keybind in `desktop/hypr/conf.d/keybinds.lua`, e.g.
+   `hl.bind(mainMod .. " + X", hl.dsp.exec_cmd("qs ipc call mylinux toggleWhatever"))`.
+
+The Quickshell binary is `qs`; the process name is `qs`, not `quickshell`, so
+`pkill -x qs` stops the shell and `pgrep -x qs` finds it.
+
+### Launcher
+
+The launcher is a single overlay with six modes selected by a typed prefix
+(see `docs/architecture.md`). When extending it:
+
+- Keep pure logic in `desktop/quickshell/logic/` (`Modes.js`, `Match.js`,
+  `Calc.js`). These files are plain scripts with no QML imports, so they can be
+  unit-tested with any JavaScript engine.
+- Keep state and process handling in
+  `desktop/quickshell/components/launcher/LauncherBackend.qml`, and put each
+  mode's presentation in its own view beside it.
+- Add a new mode by adding an entry to `Modes.js` (`MODES`), a view component,
+  and a `refresh()` branch in `Launcher.qml`. Prefixes are literal text in the
+  input field, so `ShellState.openLauncher(mode, query)` must map the mode to its
+  prefix.
+- Never evaluate user input. The calculator parses it with a hand-written
+  tokenizer and recursive-descent parser; keep it that way.
+
+### Shell service gotchas
+
+These are verified against Quickshell 0.3.2 and will silently misbehave if
+forgotten:
+
+- `SystemClock` is a **creatable** type, not a singleton. Instantiate it
+  (`SystemClock { id: clock; enabled: true; precision: SystemClock.Minutes }`)
+  and read `clock.date`; referencing `SystemClock.date` yields `undefined`.
+- `Hyprland.workspaces`, `Networking.devices`, `DesktopEntries.applications` and
+  `NotificationServer.trackedNotifications` are `ObjectModel`s. Read
+  `.values` (they have no `.length` or `.count`).
+- `PanelWindow` has **no** `opacity` property. Fade an inner item instead, and
+  drive `visible` from a real boolean.
+- `DesktopEntries.applications` is populated asynchronously. A
+  `Component.onCompleted` read sees an empty list; reload on
+  `DesktopEntries.applicationsChanged` and again when the launcher opens.
+- `NotificationServer` emits `notification(n)` per notification but does **not**
+  re-emit `trackedNotificationsChanged` after you set `n.tracked = true`. Keep a
+  local `ListModel` from the `notification` signal instead of polling the model.
+- `NotificationServer` has no `onNotificationAdded`/`onNotificationRemoved`.
+- `Pipewire.defaultAudioSink` is `null` when the machine has no audio device;
+  guard every `.audio` access.
 
 ### Validating QML
 

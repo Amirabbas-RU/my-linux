@@ -88,11 +88,23 @@ during installation.
 
 On first login the shell starts and you get:
 
-- The MyLinux top bar: brand, workspaces, clock/calendar, tray, status cluster.
-- `SUPER + D` or `SUPER + R` opens the application launcher.
+- The MyLinux top bar: brand, ten numbered workspaces, the active window title,
+  and a status cluster (notifications, network, bluetooth, volume, battery, clock,
+  power).
+- `SUPER + SPACE`, `SUPER + D` or `SUPER + R` opens the application launcher.
+  Type to search, then use `>` (apps), `=` (calculator), `?` (web search),
+  `wall:` (wallpapers), `clip:` (clipboard) or `session:` (lock/leave/power) to
+  switch modes.
+- `SUPER + C` opens the calendar.
 - `SUPER + Return` opens a terminal (`kitty`).
+- `SUPER + E` opens the file manager (`yazi`).
+- `SUPER + V` opens the clipboard history picker.
+- `SUPER + SHIFT + W` opens the wallpaper chooser (`awww`).
+- `SUPER + I` opens MyLinux settings.
 - `SUPER + L` locks the screen.
-- `SUPER + Escape` opens the session menu (lock/logout/reboot/shutdown).
+- `SUPER + SHIFT + E` or `SUPER + ESCAPE` opens the session menu
+  (lock/logout/suspend/reboot/shutdown).
+- `SUPER + mouse wheel` or `SUPER + arrow keys` switches workspaces.
 
 ### Useful commands
 
@@ -130,6 +142,6 @@ sudo .../install_base.sh --config answers.conf --dry-run
 | Selected disk is refused             | It hosts the running system/live medium. Choose another. |
 | `pacstrap` fails                     | No network. Run `iwctl` to join Wi-Fi, then retry.  |
 | Bootloader install fails             | ESP not mounted at `/boot`. Check the install log.  |
-| System boots to a black screen       | Check `LIBGL_ALWAYS_SOFTWARE` in `conf.d/env.conf`; see `docs/troubleshooting.md`. |
+| System boots to a black screen       | Check `LIBGL_ALWAYS_SOFTWARE` in `conf.d/env.lua`; see `docs/troubleshooting.md`. |
 
 See [`docs/troubleshooting.md`](troubleshooting.md) for more.

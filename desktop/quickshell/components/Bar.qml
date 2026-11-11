@@ -1,15 +1,9 @@
-// MyLinux top panel.
-//
-// A single WlrLayerShell surface anchored to the top edge that composes the
-// shell's always-visible controls: brand, workspaces, clock/calendar,
-// system tray and the right-hand status cluster.
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Wayland
 
 import "../theme"
-import "../components/widgets"
+import "widgets"
 
 PanelWindow {
     id: bar
@@ -23,54 +17,65 @@ PanelWindow {
     implicitHeight: Theme.barHeight
     exclusiveZone: Theme.barHeight
     color: Theme.color.transparent
+    WlrLayershell.namespace: "mylinux-bar"
+    WlrLayershell.layer: WlrLayer.Top
 
     Rectangle {
-        id: background
+        id: plate
         anchors.fill: parent
-        anchors.margins: Theme.barMargin
-        anchors.topMargin: Theme.barMargin
         color: Theme.color.surface
-        radius: Theme.radius.pill
-        border.color: Theme.color.border
-        border.width: 1
 
-        // Left cluster: brand + workspaces.
-        Row {
-            id: leftCluster
+        Item {
+            id: leftSection
             anchors.left: parent.left
             anchors.leftMargin: Theme.spacing.md
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Theme.spacing.md
+            width: leftRow.implicitWidth
+            height: parent.height
 
-            BrandMark {}
-            WorkspaceWidget { shellState: bar.shellState }
+            Row {
+                id: leftRow
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.spacing.md
+
+                BrandMark { shellState: bar.shellState }
+                WorkspaceWidget { shellState: bar.shellState }
+            }
         }
 
-        // Centre cluster: clock / calendar.
-        ClockWidget {
-            id: clockWidget
+        Item {
+            id: centerSection
             anchors.centerIn: parent
-            shellState: bar.shellState
-            onToggled: bar.shellState.calendarOpen = !bar.shellState.calendarOpen
+            width: Math.min(parent.width * 0.42, 380)
+            height: parent.height
+
+            ActiveWindowTitle {
+                anchors.centerIn: parent
+                shellState: bar.shellState
+            }
         }
 
-        // Right cluster: status + tray + power.
-        Row {
-            id: rightCluster
+        Item {
+            id: rightSection
             anchors.right: parent.right
-            anchors.rightMargin: Theme.spacing.md
+            anchors.rightMargin: Theme.spacing.sm
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Theme.spacing.sm
+            width: rightRow.implicitWidth
+            height: parent.height
 
-            TrayWidget { shellState: bar.shellState }
-            NetworkWidget { shellState: bar.shellState }
-            BluetoothWidget { shellState: bar.shellState }
-            VolumeWidget { shellState: bar.shellState }
-            BrightnessWidget { shellState: bar.shellState }
-            BatteryWidget { shellState: bar.shellState }
-            PowerWidget {
-                shellState: bar.shellState
-                onToggled: bar.shellState.powerMenuOpen = !bar.shellState.powerMenuOpen
+            Row {
+                id: rightRow
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.spacing.xxs
+
+                TrayWidget { shellState: bar.shellState }
+                NotificationWidget { shellState: bar.shellState }
+                NetworkWidget { shellState: bar.shellState }
+                BluetoothWidget { shellState: bar.shellState }
+                VolumeWidget { shellState: bar.shellState }
+                BatteryWidget { shellState: bar.shellState }
+                ClockWidget { shellState: bar.shellState }
+                PowerWidget { shellState: bar.shellState }
             }
         }
     }

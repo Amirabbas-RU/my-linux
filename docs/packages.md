@@ -52,9 +52,9 @@ desktop during installation.
 | Brightness/media | `brightnessctl`, `playerctl`                                   |
 | Networking UI    | `network-manager-applet`, `nm-connection-editor`, `blueman`    |
 | Notifications    | `libnotify`, `mako`                                            |
-| Wallpaper        | `hyprpaper`, `awww`, `matugen`                                 |
+| Wallpaper        | `awww`, `matugen`                                              |
 | Lock/idle        | `hyprlock`, `hypridle`                                         |
-| Fonts            | `ttf-jetbrains-mono-nerd`, `noto-fonts`, `noto-fonts-emoji`, `ttf-dejavu` |
+| Fonts            | `ttf-jetbrains-mono-nerd`, `noto-fonts`, `noto-fonts-cjk`, `noto-fonts-emoji`, `ttf-dejavu` |
 | Icons/cursors    | `papirus-icon-theme`, `adwaita-cursors`                        |
 | Theming tools    | `gtk3`, `qt6ct`, `nwg-look`                                    |
 | Audio/Bluetooth  | `pipewire`, `wireplumber`, `pavucontrol`, `bluez`, `bluez-utils` |
@@ -77,8 +77,10 @@ Notable additions over the base set: `arch-install-scripts`, `dialog`, `squashfs
   agent; the former is a fallback for sessions that do not start it.
 - **`pipewire-jack`.** Provides JACK compatibility without a full JACK server,
   which many audio applications expect.
-- **`ahww` not bundled.** MyLinux ships `hyprpaper` for wallpapers; `awww`
-  (the maintained successor to `swww`) is available for animated wallpapers.
+- **`awww` owns wallpapers.** MyLinux launches `awww-daemon` at session start
+  and drives it from the launcher (`awww img`). `awww` provides `swww` and is
+  actively maintained; a static `hyprpaper.conf` was dropped because the launcher
+  is the single source of truth for the current wallpaper.
 
 ## Auditing the package set
 
@@ -97,5 +99,5 @@ A missing package is a build blocker and fails the test.
 2. Run `./tests/run_all.sh --fast` for syntax/structure checks.
 3. Run `./tests/run_all.sh` to confirm the package resolves.
 4. If it is a desktop runtime dependency, also make sure it is started or
-   configured where appropriate (`desktop/hypr/conf.d/autostart.conf` or a
+   configured where appropriate (`desktop/hypr/conf.d/autostart.lua` or a
    systemd unit under `system/services/`).

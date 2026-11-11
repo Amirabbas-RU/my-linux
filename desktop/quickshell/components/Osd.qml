@@ -1,76 +1,121 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
+import Quickshell.Services.Pipewire
+import Quickshell.Wayland
 
 import "../theme"
 
-// Volume / brightness on-screen display.
-//
-// A centred pill that fades in whenever the volume or brightness changes and
-// fades out again after a short delay. Values are read from ShellState, which
-// the bar widgets keep up to date.
 PanelWindow {
-    id: osd
+    id: root
     required property ShellState shellState
 
-    anchors { top: true; bottom: true; left: true; right: true }
+    anchors { top: true; left: true; right: true; bottom: true }
     color: Theme.color.transparent
     exclusiveZone: 0
-    visible: opacity > 0
     focusable: false
+    visible: root.showing
+    WlrLayershell.namespace: "mylinux-osd"
+    WlrLayershell.layer: WlrLayer.Overlay
 
-    property bool showing: false
     property string kind: "volume"
     property int value: 0
+    property bool showing: false
 
-    opacity: showing ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: Theme.motion.normal } }
+    readonly property var sink: Pipewire.defaultAudioSink
 
-    function ping(): void { show("volume", osd.shellState.volume) }
+    function showVolume(): void {
+        const pct = root.sink && root.sink.audio ? Math.round(root.sink.audio.volume * 100) : 0
+        root.show("volume", pct)
+    }
+
     function show(k, v): void {
-        kind = k
-        value = v
-        showing = true
+        root.kind = k
+        root.value = v
+        root.showing = true
         hideTimer.restart()
     }
 
     Timer {
         id: hideTimer
-        interval: 1600
-        onTriggered: osd.showing = false
+        interval: 1500
+        onTriggered: root.showing = false
     }
 
-    Rectangle {
+    Item {
         anchors.centerIn: parent
-        width: 220
-        height: 64
-        radius: Theme.radius.lg
-        color: Theme.color.surface
-        border.color: Theme.color.border
-        border.width: 1
-
-        Column {
-            anchors.centerIn: parent
-            spacing: Theme.spacing.sm
-            width: parent.width - Theme.spacing.xl
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: osd.kind === "volume" ? "\u{F057E}  Volume" : "\u{F00DF}  Brightness"
-                color: Theme.color.textDim
-                font.family: Theme.font.uiFamily
-                font.pixelSize: Theme.font.sizeSm
+        width: 240
+        height: 84
+        opacity: root.showing ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: root.shellState.reducedMotion ? 0 : Theme.motion.fast
+                easing: Theme.motion.easeOut
             }
-            Rectangle {
-                width: parent.width
-                height: 8
-                radius: 4
-                color: Theme.color.surfaceAlt
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.radius.lg
+            color: Theme.color.surface
+            border.color: Theme.color.borderDim
+            border.width: 1
+
+            Column {
+                anchors.fill: parent
+                anchors.margins: Theme.spacing.lg
+                spacing: Theme.spacing.sm
+
+                Row {
+                    spacing: Theme.spacing.sm
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.kind === "volume" ? "\u{f057e}" : "\u{f00df}"
+                        color: Theme.color.primary
+                        font.family: Theme.font.family
+                        font.pixelSize: Theme.font.sizeLg
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.kind === "volume" ? "Volume" : "Brightness"
+                        color: Theme.color.textDim
+                        font.family: Theme.font.family
+                        font.pixelSize: Theme.font.sizeSm
+                    }
+
+                    Item { width: 1; height: 1 }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.value + "%"
+                        color: Theme.color.text
+                        font.family: Theme.font.mono
+                        font.pixelSize: Theme.font.sizeSm
+                        font.weight: Theme.font.weightBold
+                    }
+                }
+
                 Rectangle {
-                    width: parent.width * Math.max(0, Math.min(1, osd.value / 100))
-                    height: parent.height
-                    radius: parent.radius
-                    color: Theme.color.primary
-                    Behavior on width { NumberAnimation { duration: Theme.motion.fast } }
+                    width: parent.width
+                    height: 6
+                    radius: Theme.radius.pill
+                    color: Theme.color.surfaceAlt
+
+                    Rectangle {
+                        width: parent.width * Math.max(0, Math.min(1, root.value / 100))
+                        height: parent.height
+                        radius: parent.radius
+                        color: Theme.color.primary
+
+                        Behavior on width {
+                            NumberAnimation {
+                                duration: root.shellState.reducedMotion ? 0 : Theme.motion.fast
+                                easing: Theme.motion.easeOut
+                            }
+                        }
+                    }
                 }
             }
         }

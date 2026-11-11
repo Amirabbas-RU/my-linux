@@ -1,63 +1,86 @@
-// MyLinux Quickshell entry point.
-//
-// Quickshell loads this file and instantiates every child. Each top-level
-// object owns one surface of the desktop: the bar, the launcher, the
-// notification daemon, the OSD, the power menu and the calendar.
 import QtQuick
 import Quickshell
 import Quickshell.Io
 
 import "theme"
 import "components"
+import "components/launcher"
 
 ShellRoot {
     id: root
 
-    // Central shell state shared across components.
     ShellState { id: state }
 
-    // Top panel.
+    ThemeStore { id: themeStore }
+
+    LauncherBackend { id: launcherBackend }
+
     Bar {
         id: bar
         shellState: state
     }
 
-    // Application launcher overlay.
     Launcher {
         id: launcher
         shellState: state
+        backend: launcherBackend
     }
 
-    // Volume / brightness on-screen display.
-    Osd {
-        id: osd
-        shellState: state
-    }
-
-    // Notification daemon + popups.
     NotificationCenter {
         id: notifications
         shellState: state
     }
 
-    // Lock / logout / reboot / shutdown interface.
-    PowerMenu {
-        id: powerMenu
+    Osd {
+        id: osd
         shellState: state
     }
 
-    // Clock calendar popup.
     CalendarPopup {
         id: calendar
         shellState: state
     }
 
-    // IPC surface so keybinds and scripts can drive the shell.
+    NetworkPopup {
+        id: network
+        shellState: state
+    }
+
+    VolumePopup {
+        id: volume
+        shellState: state
+    }
+
+    PowerMenu {
+        id: powerMenu
+        shellState: state
+    }
+
+    SettingsWindow {
+        id: settings
+        shellState: state
+        backend: launcherBackend
+    }
+
     IpcHandler {
         target: "mylinux"
-        function toggleLauncher(): void { state.launcherOpen = !state.launcherOpen }
-        function toggleCalendar(): void { state.calendarOpen = !state.calendarOpen }
-        function togglePowerMenu(): void { state.powerMenuOpen = !state.powerMenuOpen }
-        function showOsd(): void { osd.ping() }
+
+        function toggleLauncher(): void { state.toggleLauncher() }
+        function openLauncher(mode: string): void { state.openLauncher(mode) }
+        function openLauncherWith(mode: string, query: string): void { state.openLauncher(mode, query) }
+        function openWallpapers(): void { state.openLauncher("wall") }
+        function openClipboard(): void { state.openLauncher("clip") }
+        function openSession(): void { state.openLauncher("session") }
+        function toggleCalendar(): void { state.toggleCalendar() }
+        function togglePowerMenu(): void { state.togglePowerMenu() }
+        function toggleNotifications(): void { state.notificationCenterOpen = !state.notificationCenterOpen }
+        function toggleSettings(): void { state.toggleSettings() }
+        function openSettings(page: string): void { state.openSettings(page) }
+        function toggleNetwork(): void { state.toggleNetwork() }
+        function toggleVolume(): void { state.toggleVolume() }
+        function clearNotifications(): void { notifications.clearAll() }
+        function closeAll(): void { state.closeAll() }
+        function showVolume(): void { osd.showVolume() }
+        function reload(): void { Quickshell.reload(false) }
     }
 }

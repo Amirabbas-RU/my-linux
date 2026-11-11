@@ -41,10 +41,10 @@ copied it before rebooting.
    ```
 
 **Fix:** On machines without a usable GPU (some VMs), software rendering is
-required. Ensure this line is present in `~/.config/hypr/conf.d/env.conf`:
+required. Ensure this line is present in `~/.config/hypr/conf.d/env.lua`:
 
-```ini
-env = LIBGL_ALWAYS_SOFTWARE,1
+```lua
+hl.env("LIBGL_ALWAYS_SOFTWARE", "1")
 ```
 
 On machines with a real GPU, remove that line to enable hardware acceleration.
@@ -78,8 +78,8 @@ On machines with a real GPU, remove that line to enable hardware acceleration.
    sudo pacman -S quickshell qt6-declarative qt6-svg qt6-wayland
    ```
 
-**Note:** The shell is also started from `conf.d/autostart.conf`
-(`exec-once = quickshell -p ...`). If you start it manually and also have the
+**Note:** The shell is also started from `conf.d/autostart.lua`
+(`hl.exec_cmd("quickshell -p ...")`). If you start it manually and also have the
 autostart line, you will run two instances. Check for duplicates with
 `pgrep -af quickshell`.
 
@@ -100,18 +100,35 @@ list is empty:
 
 ### Wallpaper is missing (black background)
 
-The default wallpaper lives at
-`/usr/share/mylinux/wallpapers/mylinux-default.png`. If it is missing or
-`hyprpaper` is not running:
+The wallpapers live in `/usr/share/mylinux/wallpapers/`, and `awww-daemon`
+applies the current one. If the background is black or `wall:` shows
+"backend unavailable":
 
 ```bash
-pacman -Q hyprpaper || sudo pacman -S hyprpaper
-pgrep -af hyprpaper || hyprpaper &
-hyprctl hyprpaper listloaded
+pacman -Q awww || sudo pacman -S awww
+pgrep -af awww-daemon || (awww-daemon &)
+awww query
 ```
 
-If you installed from a custom build where the wallpaper was not staged,
-reinstall from the ISO or copy a wallpaper and update `hyprpaper.conf`.
+`awww query` prints the image currently displayed per monitor. Open the
+wallpaper selector with `SUPER + SHIFT + W` and pick a wallpaper; the launcher
+re-applies the persisted choice on the next session start.
+
+If the wallpaper files are missing, reinstall from the ISO — the installer
+copies every `branding/wallpapers/*.png` into `/usr/share/mylinux/wallpapers/`.
+
+### Clipboard history is empty
+
+`clip:` reads `cliphist`, which is fed by `wl-paste` watchers started in
+`conf.d/autostart.lua`. If the list is empty:
+
+```bash
+pacman -Q cliphist wl-clipboard
+pgrep -af 'wl-paste --watch cliphist'
+```
+
+Copy some text, then reopen the launcher with `SUPER + V`. If `clip:` reports
+"cliphist / wl-clipboard not available", the packages are missing.
 
 ### Screen locking / idle
 
@@ -381,7 +398,7 @@ bootctl --esp-path=/boot install
 - **The live environment is console-only.** The installer is a `dialog` TUI; it
   does not run a graphical installer.
 - **Software rendering is enabled by default** on installs where the installer's
-  `env.conf` is used. Remove `LIBGL_ALWAYS_SOFTWARE` on hardware with a GPU.
+  `env.lua` is used. Remove `LIBGL_ALWAYS_SOFTWARE` on hardware with a GPU.
 
 ## Getting help
 

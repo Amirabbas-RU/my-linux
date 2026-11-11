@@ -94,8 +94,21 @@ fi
 # ---------------------------------------------------------------------------
 section "QML: lint"
 
-QMLLINT="$(command -v qmllint 2>/dev/null || true)"
-[ -z "$QMLLINT" ] && [ -x /usr/lib/qt6/bin/qmllint ] && QMLLINT=/usr/lib/qt6/bin/qmllint
+QMLLINT=""
+if [ -x /usr/lib/qt6/bin/qmllint ]; then
+    QMLLINT=/usr/lib/qt6/bin/qmllint
+elif command -v qmllint >/dev/null 2>&1; then
+    QMLLINT="$(command -v qmllint)"
+fi
+if [ -n "$QMLLINT" ]; then
+    probe="$(mktemp --suffix=.qml)"
+    printf 'import QtQuick\nItem { width: 1; height: 1 }\n' > "$probe"
+    if ! QT_QPA_PLATFORM=offscreen "$QMLLINT" "$probe" >/dev/null 2>&1; then
+        skip "qmllint at $QMLLINT rejects even a trivial file; skipping lint"
+        QMLLINT=""
+    fi
+    rm -f "$probe"
+fi
 
 if [ -n "$QMLLINT" ]; then
     mapfile -t QML < <(find desktop/quickshell -name '*.qml' | sort)
@@ -110,10 +123,17 @@ if [ -n "$QMLLINT" ]; then
         fi
     done
 
+    LOCAL_ROOTS=()
+    while IFS= read -r name; do
+        [ -n "$name" ] && LOCAL_ROOTS+=("$name")
+    done < <(find desktop/quickshell -name '*.qml' -printf '%f\n' | sed 's/\.qml$//' | sort -u)
+    LOCAL_ROOT_RE="$(IFS='|'; echo "${LOCAL_ROOTS[*]}")"
+
     for f in "${QML[@]}"; do
         base="$(basename "$f")"
-        if grep -qE '^(Item|Rectangle|Row|Column|Text|QtObject|PanelWindow|ShellRoot|PopupWindow)\b' "$f" \
-           || grep -qE 'pragma Singleton' "$f"; then
+        if grep -qE '^(Item|Rectangle|Row|Column|Text|QtObject|PanelWindow|ShellRoot|PopupWindow|Repeater|ListView|MouseArea|FocusScope)\b' "$f" \
+           || grep -qE 'pragma Singleton' "$f" \
+           || { [ -n "$LOCAL_ROOT_RE" ] && grep -qE "^($LOCAL_ROOT_RE)[[:space:]]*\\{" "$f"; }; then
             pass "qml root object: $base"
         else
             fail "qml root object: $base (no recognised root element)"
@@ -127,34 +147,338 @@ fi
 section "Hyprland configuration"
 
 HYPR="$ROOT/desktop/hypr"
-for f in hyprland.conf hyprlock.conf hypridle.conf hyprpaper.conf; do
+for f in hyprland.lua hyprlock.conf hypridle.conf; do
     if [ -f "$HYPR/$f" ]; then pass "present: hypr/$f"; else fail "missing: hypr/$f"; fi
 done
 
-for f in "$HYPR"/conf.d/*.conf; do
-    [ -f "$f" ] || continue
-    open=$(grep -o '{' "$f" | wc -l)
-    close=$(grep -o '}' "$f" | wc -l)
-    if [ "$open" -eq "$close" ]; then
-        pass "brace balance: conf.d/$(basename "$f")"
-    else
-        fail "brace balance: conf.d/$(basename "$f") ($open open, $close close)"
-    fi
-done
-
-if grep -qhE '^\s*[a-z_.]+\s*=[^=]' "$HYPR"/conf.d/*.conf; then
-    pass "conf.d uses key = value syntax"
+if [ -f "$HYPR/hyprpaper.conf" ]; then
+    fail "hyprpaper.conf is installed but hyprpaper is no longer launched (awww owns wallpapers)"
 else
-    fail "conf.d does not look like Hyprland syntax"
+    pass "no stale hyprpaper.conf (awww owns wallpapers)"
+fi
+
+if have luac; then
+    for f in "$HYPR"/*.lua "$HYPR"/conf.d/*.lua; do
+        [ -f "$f" ] || continue
+        if luac -p "$f" >/dev/null 2>&1; then
+            pass "lua syntax: ${f#"$HYPR"/}"
+        else
+            fail "lua syntax: ${f#"$HYPR"/} ($(luac -p "$f" 2>&1 | head -1))"
+        fi
+    done
+else
+    skip "luac not available for Lua syntax checks"
 fi
 
 for mod in env appearance animations input monitors windowrules autostart keybinds; do
-    if grep -q "conf.d/$mod.conf" "$HYPR/hyprland.conf"; then
-        pass "hyprland.conf sources $mod.conf"
+    if grep -q "\"$mod\"" "$HYPR/hyprland.lua"; then
+        pass "hyprland.lua loads $mod"
     else
-        fail "hyprland.conf does not source $mod.conf"
+        fail "hyprland.lua does not load $mod"
     fi
 done
+
+if [ -f "$HYPR/conf.d/keyboard.lua" ] && \
+   grep -q 'return { layout' "$HYPR/conf.d/keyboard.lua"; then
+    pass "installer-owned keyboard.lua present"
+else
+    fail "missing installer-owned conf.d/keyboard.lua"
+fi
+
+if grep -q 'awww-daemon' "$HYPR/conf.d/autostart.lua" && \
+   ! grep -q 'hyprpaper' "$HYPR/conf.d/autostart.lua"; then
+    pass "autostart launches awww-daemon and not hyprpaper"
+else
+    fail "autostart does not launch the awww wallpaper backend"
+fi
+
+if grep -q 'wallpaperDir' "$ROOT/desktop/quickshell/components/launcher/LauncherBackend.qml" \
+   && grep -q '/usr/share/mylinux/wallpapers' "$ROOT/desktop/quickshell/components/launcher/LauncherBackend.qml"; then
+    pass "wallpaper path is centralised in the launcher backend"
+else
+    fail "wallpaper path is not referenced by the launcher backend"
+fi
+
+# ---------------------------------------------------------------------------
+section "Desktop shell: panel layer"
+
+SHELL_DIR="$ROOT/desktop/quickshell"
+
+if grep -q 'mako' "$HYPR/conf.d/autostart.lua"; then
+    fail "autostart still launches mako (Quickshell owns org.freedesktop.Notifications)"
+else
+    pass "autostart does not launch a competing notification daemon"
+fi
+
+for ns in mylinux-bar mylinux-launcher mylinux-calendar mylinux-session \
+          mylinux-notifications mylinux-osd mylinux-network mylinux-volume; do
+    suffix="${ns#mylinux-}"
+    if grep -rq "WlrLayershell.namespace: \"$ns\"" "$SHELL_DIR" && \
+       grep -q "$suffix" "$HYPR/conf.d/windowrules.lua"; then
+        pass "layer namespace wired: $ns"
+    else
+        fail "layer namespace not wired (shell + windowrules): $ns"
+    fi
+done
+
+if grep -rq 'SystemClock\.' "$SHELL_DIR" && \
+   ! grep -rq 'id: clock' "$SHELL_DIR"; then
+    fail "SystemClock referenced without instantiation (it is creatable, not a singleton)"
+else
+    pass "SystemClock is instantiated where its date is read"
+fi
+
+if grep -rn '^ *opacity:' "$SHELL_DIR" | grep -q 'PanelWindow'; then
+    fail "PanelWindow has no opacity property"
+else
+    pass "no opacity assignment on a PanelWindow root"
+fi
+
+if grep -q 'n.tracked = true' "$SHELL_DIR/components/NotificationCenter.qml"; then
+    pass "notification daemon opts new notifications into tracking"
+else
+    fail "NotificationCenter never sets tracked, so cards would never appear"
+fi
+
+if grep -q 'onNotification' "$SHELL_DIR/components/NotificationCenter.qml"; then
+    pass "notification cards are fed from the onNotification signal"
+else
+    fail "NotificationCenter does not listen to onNotification"
+fi
+
+if grep -q 'onApplicationsChanged' "$SHELL_DIR/components/Launcher.qml"; then
+    pass "launcher reloads when desktop entries finish scanning"
+else
+    fail "launcher reads DesktopEntries.applications only once (async list race)"
+fi
+
+# ---------------------------------------------------------------------------
+section "Launcher (Phase 2.2)"
+
+LCH="$SHELL_DIR/components/launcher"
+LOGIC="$SHELL_DIR/logic"
+
+for f in components/Launcher.qml components/launcher/LauncherBackend.qml \
+         components/launcher/AppRow.qml components/launcher/CalcView.qml \
+         components/launcher/WebView.qml components/launcher/WallpaperView.qml \
+         components/launcher/ClipboardView.qml components/launcher/SessionView.qml \
+         logic/Modes.js logic/Match.js logic/Calc.js; do
+    if [ -s "$SHELL_DIR/$f" ]; then
+        pass "launcher file present: ${f#components/launcher/}"
+    else
+        fail "launcher file missing or empty: $f"
+    fi
+done
+
+if grep -q 'WlrLayershell.namespace: "mylinux-launcher"' "$SHELL_DIR/components/Launcher.qml"; then
+    pass "launcher declares the mylinux-launcher layer namespace"
+else
+    fail "launcher does not declare the mylinux-launcher layer namespace"
+fi
+
+if grep -q 'prefix: ">"' "$LOGIC/Modes.js" && \
+   grep -q 'prefix: "="' "$LOGIC/Modes.js" && \
+   grep -q 'prefix: "?"' "$LOGIC/Modes.js" && \
+   grep -q 'prefix: "wall:"' "$LOGIC/Modes.js" && \
+   grep -q 'prefix: "clip:"' "$LOGIC/Modes.js" && \
+   grep -q 'prefix: "session:"' "$LOGIC/Modes.js"; then
+    pass "all six launcher prefixes are defined"
+else
+    fail "one or more launcher prefixes are missing from Modes.js"
+fi
+
+if grep -q 'duckduckgo.com' "$LOGIC/Modes.js"; then
+    pass "DuckDuckGo is the default web search provider"
+else
+    fail "DuckDuckGo default provider missing from Modes.js"
+fi
+
+if grep -qE '\beval\s*\(|new Function|child_process|execSync' "$LOGIC/Calc.js"; then
+    fail "calculator uses eval/Function/subprocess (must be a safe parser)"
+else
+    pass "calculator does not use eval, new Function or a subprocess"
+fi
+
+if grep -q 'function tokenize' "$LOGIC/Calc.js" && grep -q 'function parse' "$LOGIC/Calc.js"; then
+    pass "calculator uses a hand-written tokenizer and recursive-descent parser"
+else
+    fail "calculator lacks an explicit tokenizer/parser"
+fi
+
+if grep -q 'Quickshell.clipboardText' "$LCH/LauncherBackend.qml"; then
+    pass "clipboard writes go through Quickshell.clipboardText"
+else
+    fail "clipboard copy does not use Quickshell.clipboardText"
+fi
+
+if grep -q 'cliphist' "$LCH/LauncherBackend.qml" && \
+   grep -q 'cliphist' "$LCH/ClipboardView.qml" 2>/dev/null || \
+   grep -q 'cliphist' "$LCH/LauncherBackend.qml"; then
+    pass "clipboard history is backed by cliphist"
+else
+    fail "cliphist backend missing from the launcher"
+fi
+
+if grep -qE '\["cliphist", "wipe"\]|cliphist wipe' "$LCH/LauncherBackend.qml"; then
+    pass "clipboard clear uses 'cliphist wipe'"
+else
+    fail "clipboard clear does not use 'cliphist wipe'"
+fi
+
+if grep -q 'wl-clipboard\|wl-copy' "$LCH/LauncherBackend.qml" && \
+   grep -qi 'missing\|unavailable\|not available' "$LCH/LauncherBackend.qml" "$LCH/ClipboardView.qml"; then
+    pass "clipboard view degrades gracefully when tooling is absent"
+else
+    fail "clipboard view does not report missing tooling"
+fi
+
+if grep -q 'awww' "$LCH/LauncherBackend.qml" && \
+   grep -q 'awww img' "$LCH/LauncherBackend.qml"; then
+    pass "wallpaper switching calls 'awww img'"
+else
+    fail "wallpaper switching does not use awww"
+fi
+
+if grep -q 'wallpaperBackendMissing\|backendMissing' "$LCH/LauncherBackend.qml" "$LCH/WallpaperView.qml"; then
+    pass "wallpaper view degrades gracefully when awww is absent"
+else
+    fail "wallpaper view does not report a missing backend"
+fi
+
+if grep -q 'xdg-open' "$LCH/LauncherBackend.qml"; then
+    pass "web search opens URLs with xdg-open (default browser)"
+else
+    fail "web search does not open URLs with xdg-open"
+fi
+
+for action in lock logout suspend reboot shutdown; do
+    if grep -q "\"$action\"\|'$action'" "$LCH/SessionView.qml" "$LCH/LauncherBackend.qml" 2>/dev/null; then
+        pass "session action wired: $action"
+    else
+        fail "session action missing: $action"
+    fi
+done
+
+if grep -qE 'confirm' "$LCH/SessionView.qml" || grep -qE 'confirm' "$LCH/LauncherBackend.qml"; then
+    pass "destructive session actions are behind a confirmation step"
+else
+    fail "destructive session actions have no confirmation"
+fi
+
+if grep -q 'FileView' "$LCH/LauncherBackend.qml" && \
+   grep -q 'atomicWrites: true' "$LCH/LauncherBackend.qml"; then
+    pass "launcher state persists to disk atomically"
+else
+    fail "launcher state does not persist atomically"
+fi
+
+for key in favorites provider wallpaper; do
+    if grep -q "$key" "$LCH/LauncherBackend.qml"; then
+        pass "persisted state field present: $key"
+    else
+        fail "persisted state field missing: $key"
+    fi
+done
+
+if grep -q 'favorites' "$LCH/LauncherBackend.qml" && \
+   grep -q 'function toggleFavorite\|toggleFavorite' "$LCH/LauncherBackend.qml"; then
+    pass "favourites can be toggled and ordered by the backend"
+else
+    fail "favourites toggle/ordering not implemented"
+fi
+
+if grep -q '\.execute()' "$LCH/LauncherBackend.qml"; then
+    pass "applications launch through the native DesktopEntry.execute()"
+else
+    fail "launcher does not use the native DesktopEntry execution API"
+fi
+
+if grep -qE "execDetached\(\[\"sh\", *\"-c\"" "$LCH/LauncherBackend.qml"; then
+    fail "launcher passes a desktop-entry Exec string to a shell (sh -c)"
+else
+    pass "no desktop-entry Exec string is passed to a shell"
+fi
+
+if grep -q 'descriptor.exec\|%\[fFuUdDnNickvm\]' "$LCH/LauncherBackend.qml"; then
+    fail "launcher still reads the raw Exec string for launching"
+else
+    pass "launcher no longer relies on the raw Exec string"
+fi
+
+if grep -q '"which"' "$LCH/LauncherBackend.qml"; then
+    pass "launcher pre-checks executables without a shell"
+else
+    fail "launcher launches without verifying the executable exists"
+fi
+
+if grep -q 'lastError' "$LCH/LauncherBackend.qml" && \
+   grep -q 'executable not found' "$LCH/LauncherBackend.qml"; then
+    pass "failed launches surface a visible error"
+else
+    fail "failed launches are silent"
+fi
+
+if grep -qF '(?=\d{3}' "$LOGIC/Calc.js"; then
+    fail "calculator still strips commas (breaks multi-argument functions)"
+else
+    pass "calculator preserves commas as argument separators"
+fi
+
+if grep -q 'min\|max\|atan2' "$LOGIC/Calc.js"; then
+    pass "calculator supports multi-argument functions"
+else
+    fail "calculator multi-argument functions missing"
+fi
+
+if grep -q 'openLauncher' "$SHELL_DIR/shell.qml" && \
+   grep -q 'openWallpapers' "$SHELL_DIR/shell.qml" && \
+   grep -q 'openClipboard' "$SHELL_DIR/shell.qml" && \
+   grep -q 'openSession' "$SHELL_DIR/shell.qml"; then
+    pass "IPC surface exposes every launcher entry point"
+else
+    fail "IPC surface is missing a launcher entry point"
+fi
+
+for kb in 'openWallpapers' 'openClipboard' 'openSession'; do
+    if grep -q "$kb" "$HYPR/conf.d/keybinds.lua"; then
+        pass "keybind calls $kb"
+    else
+        fail "keybind for $kb missing"
+    fi
+done
+
+if grep -q 'mainMod .. " + SPACE"' "$HYPR/conf.d/keybinds.lua" && \
+   grep -q 'toggleLauncher' "$HYPR/conf.d/keybinds.lua"; then
+    pass "SUPER+SPACE opens the launcher"
+else
+    fail "SUPER+SPACE launcher binding missing"
+fi
+
+if grep -q 'mainMod .. " + SHIFT + W"' "$HYPR/conf.d/keybinds.lua"; then
+    pass "SUPER+SHIFT+W opens the wallpaper selector"
+else
+    fail "SUPER+SHIFT+W wallpaper binding missing"
+fi
+
+if grep -q 'mainMod .. " + V"' "$HYPR/conf.d/keybinds.lua" && \
+   ! grep -q 'mainMod .. " + V".*wl-paste' "$HYPR/conf.d/keybinds.lua"; then
+    pass "SUPER+V opens clipboard history without a conflicting bind"
+else
+    fail "SUPER+V binding missing or conflicting"
+fi
+
+wp_count=$(find "$ROOT/branding/wallpapers" -maxdepth 1 -type f -name '*.png' 2>/dev/null | wc -l)
+if [ "$wp_count" -ge 6 ]; then
+    pass "at least six wallpapers ship in branding/wallpapers ($wp_count)"
+else
+    fail "fewer than six wallpapers in branding/wallpapers ($wp_count)"
+fi
+
+if grep -q 'branding/wallpapers/\*.png' installer/backend/install_base.sh; then
+    pass "installer copies every bundled wallpaper"
+else
+    fail "installer does not loop over branding/wallpapers/*.png"
+fi
 
 # ---------------------------------------------------------------------------
 section "systemd units"

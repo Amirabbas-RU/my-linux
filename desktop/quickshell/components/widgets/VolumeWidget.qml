@@ -1,62 +1,36 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
+import Quickshell.Services.Pipewire
 
 import "../../theme"
 
-// Volume control bound to PipeWire via wpctl. Polls the default sink and lets
-// the user adjust it with the scroll wheel or by clicking to mute.
-Item {
-    id: volume
+StatusButton {
+    id: root
     required property ShellState shellState
-    implicitWidth: icon.implicitWidth + Theme.spacing.sm * 2
-    implicitHeight: Theme.iconSize + Theme.spacing.sm
 
-    Process {
-        id: poll
-        command: ["sh", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const t = text.trim()
-                const m = t.match(/Volume:\s*([0-9.]+)/)
-                if (m) volume.shellState.volume = Math.round(parseFloat(m[1]) * 100)
-                volume.shellState.muted = t.includes("[MUTED]")
-            }
-        }
-    }
+    readonly property var sink: Pipewire.defaultAudioSink
+    readonly property var audio: sink ? sink.audio : null
+    readonly property bool muted: audio ? audio.muted : false
+    readonly property real volume: audio ? audio.volume : 0.0
+    readonly property int percent: Math.round(volume * 100)
 
-    function adjust(delta): void {
-        const step = delta > 0 ? "5%+" : "5%-"
-        Quickshell.launch(["wpctl", "set-volume", "-l", "1.0", "@DEFAULT_AUDIO_SINK@", step])
-        refreshTimer.restart()
+    glyph: {
+        if (root.muted || root.percent === 0) return "\u{f0581}"
+        if (root.percent < 34) return "\u{f0580}"
+        if (root.percent < 67) return "\u{f057f}"
+        return "\u{f057e}"
     }
-    function toggleMute(): void {
-        Quickshell.launch(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
-        refreshTimer.restart()
-    }
+    active: false
+    activeColor: Theme.color.text
+    tooltip: root.muted ? "Muted" : (root.percent + "%")
 
-    Timer { id: refreshTimer; interval: 150; onTriggered: poll.running = true }
-    Timer { interval: 1000; running: true; repeat: true; onTriggered: poll.running = true }
-
-    Text {
-        id: icon
-        anchors.centerIn: parent
-        color: volume.shellState.muted ? Theme.color.textMuted : Theme.color.text
-        font.family: Theme.font.family
-        font.pixelSize: Theme.font.sizeMd
-        text: {
-            if (volume.shellState.muted) return "\u{F0581}"
-            const v = volume.shellState.volume
-            if (v < 1) return "\u{F0580}"
-            if (v < 50) return "\u{F057F}"
-            return "\u{F057E}"
-        }
-        Behavior on color { ColorAnimation { duration: Theme.motion.fast } }
-    }
+    onActivated: root.shellState.toggleVolume()
 
     WheelHandler {
-        onWheel: (event) => volume.adjust(event.angleDelta.y)
+        onWheel: (event) => {
+            if (!root.audio) return
+            const step = event.angleDelta.y > 0 ? 0.05 : -0.05
+            root.audio.volume = Math.max(0.0, Math.min(1.0, root.audio.volume + step))
+        }
     }
-    TapHandler { onTapped: volume.toggleMute() }
 }

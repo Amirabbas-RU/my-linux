@@ -1,104 +1,158 @@
 import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
+import Quickshell.Wayland
 
 import "../theme"
 
-// Notification daemon and popup stack.
-//
-// Quickshell's NotificationServer implements org.freedesktop.Notifications, so
-// the shell becomes the session's notification daemon. Tracked notifications
-// are rendered as a vertical stack of cards in the top-right corner.
 PanelWindow {
-    id: center
+    id: root
     required property ShellState shellState
 
     anchors { top: true; right: true }
-    margins { top: Theme.barHeight + Theme.spacing.md; right: Theme.spacing.md }
-    implicitWidth: 360
-    implicitHeight: Math.min(stack.height, 600)
+    margins {
+        top: Theme.barHeight + Theme.spacing.sm
+        right: Theme.barMargin
+    }
+    implicitWidth: 340
+    implicitHeight: Math.max(1, column.implicitHeight)
     color: Theme.color.transparent
     exclusiveZone: 0
-    focusable: false
+    focusable: root.shellState.notificationCenterOpen
+    visible: cardModel.count > 0 || root.shellState.notificationCenterOpen
+    WlrLayershell.namespace: "mylinux-notifications"
+    WlrLayershell.layer: WlrLayer.Overlay
 
     NotificationServer {
         id: server
         keepOnReload: true
         bodySupported: true
+        bodyMarkupSupported: true
         actionsSupported: true
         imageSupported: true
+
+        onNotification: function(n) {
+            n.tracked = true
+            root.add(n)
+        }
+    }
+
+    ListModel { id: cardModel }
+
+    onVisibleChanged: root.shellState.notificationCount = cardModel.count
+
+    function add(n): void {
+        const timeout = n.expireTimeout > 0 ? n.expireTimeout : 6000
+        cardModel.append({
+            appName: n.appName || "",
+            appIcon: n.appIcon || "",
+            summary: n.summary || "",
+            body: n.body || "",
+            urgency: n.urgency,
+            resident: n.resident === true,
+            timeout: timeout,
+            handle: n
+        })
+        root.shellState.notificationCount = cardModel.count
+    }
+
+    function removeAt(i): void {
+        if (i < 0 || i >= cardModel.count) return
+        const item = cardModel.get(i)
+        if (item.handle) item.handle.dismiss()
+        cardModel.remove(i)
+        root.shellState.notificationCount = cardModel.count
+    }
+
+    function clearAll(): void {
+        while (cardModel.count > 0) removeAt(0)
     }
 
     Column {
-        id: stack
+        id: column
         width: parent.width
         spacing: Theme.spacing.sm
 
         Repeater {
-            model: server.trackedNotifications
+            model: cardModel
 
             Rectangle {
-                required property var modelData
-                width: stack.width
-                height: content.implicitHeight + Theme.spacing.lg * 2
+                id: card
+                required property int index
+                required property string appName
+                required property string appIcon
+                required property string summary
+                required property string body
+                required property int urgency
+                required property bool resident
+                required property int timeout
+
+                width: column.width
+                height: content.implicitHeight + Theme.spacing.md * 2
                 radius: Theme.radius.md
                 color: Theme.color.surface
                 border.width: 1
-                border.color: modelData.urgency === NotificationUrgency.Critical
+                border.color: card.urgency === NotificationUrgency.Critical
                     ? Theme.color.danger
                     : Theme.color.border
 
                 Column {
                     id: content
                     anchors.fill: parent
-                    anchors.margins: Theme.spacing.lg
+                    anchors.margins: Theme.spacing.md
                     spacing: Theme.spacing.xs
 
                     Row {
-                        spacing: Theme.spacing.sm
                         width: parent.width
+                        spacing: Theme.spacing.sm
 
                         Image {
-                            width: 18; height: 18
-                            source: modelData.appIcon !== "" ? Quickshell.iconPath(modelData.appIcon, true) : ""
+                            width: 16
+                            height: 16
+                            anchors.verticalCenter: parent.verticalCenter
+                            source: card.appIcon !== "" ? Quickshell.iconPath(card.appIcon, true) : ""
+                            sourceSize.width: 16
+                            sourceSize.height: 16
                             visible: status === Image.Ready
-                            anchors.verticalCenter: parent.verticalCenter
                         }
+
                         Text {
-                            text: modelData.appName
-                            color: Theme.color.textMuted
-                            font.family: Theme.font.uiFamily
-                            font.pixelSize: Theme.font.sizeXs
                             anchors.verticalCenter: parent.verticalCenter
+                            text: card.appName
+                            color: Theme.color.textMuted
+                            font.family: Theme.font.family
+                            font.pixelSize: Theme.font.sizeXs
                         }
                     }
+
                     Text {
                         width: parent.width
-                        text: modelData.summary
+                        text: card.summary
                         color: Theme.color.text
-                        font.family: Theme.font.uiFamily
+                        font.family: Theme.font.family
                         font.pixelSize: Theme.font.sizeMd
                         font.weight: Theme.font.weightBold
                         wrapMode: Text.WordWrap
                     }
+
                     Text {
                         width: parent.width
-                        text: modelData.body
+                        text: card.body
                         visible: text.length > 0
                         color: Theme.color.textDim
-                        font.family: Theme.font.uiFamily
+                        font.family: Theme.font.family
                         font.pixelSize: Theme.font.sizeSm
                         wrapMode: Text.WordWrap
                     }
                 }
 
                 Timer {
-                    interval: Math.max(3000, modelData.expireTimeout)
-                    running: true
-                    onTriggered: modelData.expire()
+                    interval: card.timeout
+                    running: !card.resident
+                    onTriggered: root.removeAt(card.index)
                 }
 
-                TapHandler { onTapped: modelData.dismiss() }
+                TapHandler { onTapped: root.removeAt(card.index) }
             }
         }
     }

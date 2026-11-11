@@ -4,11 +4,10 @@ import Quickshell.Services.SystemTray
 
 import "../../theme"
 
-// System tray: renders StatusNotifierItems registered on the session bus.
 Row {
-    id: tray
+    id: root
     required property ShellState shellState
-    spacing: Theme.spacing.xs
+    spacing: Theme.spacing.xxs
     visible: repeater.count > 0
 
     Repeater {
@@ -16,33 +15,50 @@ Row {
         model: SystemTray.items
 
         Item {
+            id: entry
             required property var modelData
-            width: Theme.iconSize
-            height: Theme.iconSize
-            anchors.verticalCenter: parent.verticalCenter
+            width: 24
+            height: Theme.barHeight
 
-            Image {
-                anchors.fill: parent
-                source: modelData.icon
-                sourceSize.width: Theme.iconSize
-                sourceSize.height: Theme.iconSize
-                smooth: true
-                visible: status === Image.Ready
-            }
-
-            Text {
+            Rectangle {
                 anchors.centerIn: parent
-                visible: parent.children[0].status !== Image.Ready
-                text: ""
-                color: Theme.color.textDim
-            }
+                width: 26
+                height: 26
+                radius: Theme.radius.sm
+                color: trayHover.hovered ? Theme.color.surfaceAlt : Theme.color.transparent
 
-            HoverHandler { id: trayHover }
-            TapHandler {
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                onTapped: (event) => {
-                    if (event.button === Qt.LeftButton && modelData.activate)
-                        modelData.activate()
+                Image {
+                    id: logo
+                    anchors.centerIn: parent
+                    width: 16
+                    height: 16
+                    source: entry.modelData.icon
+                    sourceSize.width: 16
+                    sourceSize.height: 16
+                    smooth: true
+                    visible: status === Image.Ready
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: logo.status !== Image.Ready
+                    text: "\u{f0090}"
+                    color: Theme.color.textDim
+                    font.family: Theme.font.family
+                    font.pixelSize: Theme.font.sizeMd
+                }
+
+                HoverHandler { id: trayHover }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: (event) => {
+                        if (event.button === Qt.LeftButton && entry.modelData.activate)
+                            entry.modelData.activate()
+                        else if (event.button === Qt.RightButton && entry.modelData.secondaryActivate)
+                            entry.modelData.secondaryActivate()
+                    }
                 }
             }
         }

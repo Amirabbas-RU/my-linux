@@ -50,7 +50,6 @@ libnotify
 mako
 
 # --- wallpaper / theming ---
-hyprpaper
 awww
 matugen
 
@@ -61,6 +60,7 @@ hypridle
 # --- fonts used by the shell ---
 ttf-jetbrains-mono-nerd
 noto-fonts
+noto-fonts-cjk
 noto-fonts-emoji
 ttf-dejavu
 

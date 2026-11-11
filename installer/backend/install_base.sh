@@ -232,8 +232,10 @@ stage_configure() {
     install -Dm644 "$MYLINUX_SOURCE/branding/os-release" "$MYLINUX_TARGET/etc/os-release"
     install -Dm644 "$MYLINUX_SOURCE/branding/logo/mylinux-logo.txt" "$MYLINUX_TARGET/etc/issue"
     install -Dm644 "$MYLINUX_SOURCE/branding/logo/mylinux-logo.svg" "$MYLINUX_TARGET/usr/share/mylinux/logo/mylinux-logo.svg"
-    install -Dm644 "$MYLINUX_SOURCE/branding/wallpapers/mylinux-default.png" \
-        "$MYLINUX_TARGET/usr/share/mylinux/wallpapers/mylinux-default.png"
+    for wp in "$MYLINUX_SOURCE"/branding/wallpapers/*.png; do
+        [ -e "$wp" ] || continue
+        install -Dm644 "$wp" "$MYLINUX_TARGET/usr/share/mylinux/wallpapers/$(basename "$wp")"
+    done
 
     # --- mkinitcpio -------------------------------------------------------
     install -Dm644 "$MYLINUX_SOURCE/system/config/mkinitcpio.conf" "$MYLINUX_TARGET/etc/mkinitcpio.conf"
@@ -281,7 +283,8 @@ stage_desktop() {
 
     # Keyboard layout chosen at install time is reflected in the Hyprland input
     # config so the desktop matches the console keymap.
-    sed -i "s/^\(\s*kb_layout\s*=\s*\).*/\1$KEYMAP/" "$home/.config/hypr/conf.d/input.conf"
+    printf 'return { layout = "%s", variant = "", options = "" }\n' "$KEYMAP" \
+        > "$home/.config/hypr/conf.d/keyboard.lua"
 
     # SDDM: Hyprland is the only session shipped, so it is selected by default.
     # No custom theme is installed, so leave the theme at SDDM's default rather
